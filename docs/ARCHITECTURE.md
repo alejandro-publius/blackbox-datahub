@@ -128,6 +128,26 @@ DataHub OSS (quickstart, v1.7.0) is the agent's map of the pipeline and its dura
 
 The demo-reset endpoint (`POST /api/demo/reset`) also re-syncs DataHub metadata (idempotent upserts) so reverted transform SQL is reflected in the graph.
 
+### 6a. Two access paths, one context graph
+
+BlackBox reaches DataHub's context graph through **two transports**, tried in order and falling back:
+
+| Order | Transport | Implementation | Notes |
+|---|---|---|---|
+| 1 | **Official DataHub MCP Server** (`uvx mcp-server-datahub`) | `datahub/mcp_bridge.py` — a real stdio MCP client owning its own event loop in a daemon thread | Serves `search`, entity context (`get_entities`, incl. `health`) and each `get_lineage` BFS hop |
+| 2 | **Agent Context Kit** (`datahub-agent-context`) | `datahub/context_kit.py` — native embedded Python, no subprocess or stdio hop | Same three reads. Cloud-gated tools (`ask_datahub_chat`, document search) are deliberately unused; a test asserts they never appear |
+| 3 | **GraphQL / aspect reads** | `datahub/client.py` | Final fallback, and the path for things the agent surfaces don't expose |
+
+**These are alternative routes to the same DataHub instance, not independent sources of truth.** Every `EvidenceItem` records the transport that produced it (`EvidenceItem.transport`, mirrored in `types.ts`) so a reader can see provenance — not so we can claim corroboration.
+
+One precision worth stating, because it is easy to overclaim: **column-level lineage (`fineGrainedLineages`) is read from the `UpstreamLineage` aspect via the SDK/GraphQL path** (`client.py::_column_lineage_for`), not from the MCP server. MCP and ACK supply table-level hops and entity context; the field-level edges that connect `raw_orders.amount` to the KPI come from the aspect read.
+
+### 6b. Optional observability (Phoenix / OpenTelemetry)
+
+`backend/blackbox/tracing.py` renders one investigation as **one trace**: an `AGENT`-kind phase span containing a `TOOL` span per deterministic tool call and the auto-instrumented Anthropic calls (OpenInference), closed out with deterministic annotations — root-cause gate result, `N/N` invariants, post-repair KPI ratio, writeback status, repair branch and PR url.
+
+It is shipped as the `[tracing]` extra and gated on `BLACKBOX_TRACING` (default **off**): with the flag unset no tracing package is imported and every helper is a no-op. Because FastAPI runs the investigation on a worker thread, `api._traced` captures the OTel context in the request thread and re-attaches it in the worker — otherwise the spans would be orphaned into a second trace. Tracing is **not** part of the correctness argument; it is engineering visibility. No secrets or raw rows are recorded.
+
 ## 7. API & frontend
 
 **FastAPI** (`backend/blackbox/api.py`, port 8400):
