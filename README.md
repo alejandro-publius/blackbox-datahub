@@ -8,6 +8,7 @@
 >
 > `READ → PROVE → ACT → VERIFY → WRITE`
 
+[![CI](https://github.com/alejandro-publius/blackbox-datahub/actions/workflows/ci.yml/badge.svg)](https://github.com/alejandro-publius/blackbox-datahub/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![DataHub OSS](https://img.shields.io/badge/DataHub-OSS%20v1.7.0-1890ff)](https://datahubproject.io/)
 [![MCP Server](https://img.shields.io/badge/DataHub-MCP%20Server-6f42c1)](https://docs.datahub.com/docs/features/feature-guides/mcp)
@@ -66,6 +67,25 @@ Anyone can get an LLM to *say* it found a root cause. The design question is wha
 | Remote publication fails | PR creation runs strictly **after** verification and is non-gating; failure is recorded as evidence | [`tests/test_repair_pr.py`](tests/test_repair_pr.py) |
 
 The LLM is never the final judge of a fact, a root cause, a repair's correctness, or an evaluation result.
+
+### Safety envelope
+
+**The model controls investigative strategy. The system controls its authority.** Every constraint below is enforced in code, not prompting:
+
+| The agent cannot… | Enforced by |
+|---|---|
+| Advance a root cause without machine-validated DataHub **and** quantitative evidence naming the blamed asset/field | [`tools.py::t_confirm_root_cause`](backend/blackbox/agent/tools.py) · [tests](tests/test_engine.py) |
+| Mutate the pipeline without explicit human authorization — diagnosis pauses at `ROOT_CAUSE_CONFIRMED` until an operator presses **Repair & Verify** | [`api.py::start_repair`](backend/blackbox/api.py) · `allow_repair` in `tools.py` |
+| Touch anything outside `pipeline/transforms/*.sql` | [`repair.py::_resolve_transform`](backend/blackbox/repair.py) — path-resolved allowlist |
+| Pass off a repair it did not execute — the patch is written to the real transform and the warehouse is rebuilt | [`repair.py::verify_repair`](backend/blackbox/repair.py) |
+| Leave an unverified repair on disk — abandoned/failed patches are reverted and the warehouse rebuilt | [`investigator.py::_cleanup_unverified_patch`](backend/blackbox/agent/investigator.py) |
+| Declare success on a partial fix — requires the **complete** invariant suite green **and** the KPI inside the acceptance band | `verify_repair`: `report.failed == 0` and `0.8 ≤ ratio ≤ 1.3` |
+| Hide a plausible-but-wrong fix — a blanket `/100` is caught by historical-immutability invariants | `bad_repair_rejected` eval, [`evals/results/`](evals/results/) |
+| Turn a verified repair into a failure via publication — PR creation runs strictly after `VERIFIED` and is non-gating | [`repair.py::publish_repair_pr`](backend/blackbox/repair.py) · [tests](tests/test_repair_pr.py) |
+| Push anywhere but `blackbox/fix-*` on `origin` | `FIX_BRANCH_PREFIX` guard in `repair.py` |
+| Write a resolution to DataHub before it is earned — the incident is raised at proven root cause and only resolved after verification | [`datahub/writeback.py`](backend/blackbox/datahub/writeback.py) |
+
+Read-only SQL is additionally sandboxed: filesystem access is disabled at the DuckDB connection level after a security review found `read_csv('.env')` could slip past a SELECT-prefix guard ([`warehouse.py`](backend/blackbox/warehouse.py), [regression test](tests/test_engine.py)).
 
 ## Architecture
 
@@ -237,7 +257,24 @@ Every push runs backend unit tests, the healthy fixture's 32/32 invariants, fron
 
 ## For judges
 
-**45-second path:** the [hero screenshot](#-blackbox--autonomous-data-incident-response) → [the result](#see-it-work) → [why trust it](#why-trust-the-agent) → [architecture](#architecture) → [DataHub usage](#how-datahub-is-used) → the [real repair PR](#see-it-work) → [eval evidence](#evals) → [OSS contributions](#contributed-back-to-datahub-oss) → [how to run](#quickstart).
+**45-second path:** [the screenshots](#-blackbox--autonomous-data-incident-response) → [the actual result](#see-it-work) → [why trust it + safety envelope](#why-trust-the-agent) → **[the PR the agent opened](https://github.com/alejandro-publius/blackbox-datahub/pull/1)** → [adversarial evals](#evals) → **`make judge-check`** (below) → [DataHub usage + writeback](#how-datahub-is-used) → [upstream OSS contributions](#contributed-back-to-datahub-oss).
+
+**Verify it yourself in one command — no API key, no DataHub, no network service:**
+
+```bash
+make judge-check
+```
+
+Runs the same deterministic evidence CI runs — backend unit tests, the healthy fixture at 32/32 invariants, frontend lint + production build, and a tracked-secret scan — then restores the demo's incident fixture. It never runs a live agent, touches a remote, or opens a PR. (The full autonomous demo needs an Anthropic key and DataHub; see [Quickstart](#quickstart).)
+
+```
+BLACKBOX JUDGE CHECK
+backend:               PASS — 50 tests
+healthy pipeline:      PASS — 32/32
+frontend lint/build:   PASS — clean
+secrets:               PASS — none tracked, .env ignored
+No API key, live DataHub, GitHub token or Phoenix used. No remote touched.
+```
 
 | | |
 |---|---|

@@ -65,17 +65,17 @@ Total narration ≈ 400 words at ~140 wpm. The through-line is **proof → actio
 
 > Here's the part that matters. That conclusion had to pass a gate written in code, not prose: cite DataHub lineage evidence, and cite quantitative evidence naming that exact field. The agent cannot talk its way past it.
 
-### 1:35 – 1:42 — Human authorization (17 words)
+### 1:35 – 1:45 — The authority boundary (30 words)
 
 **Clicks:** hover, then press **Repair & Verify**.
 
-> Diagnosis is autonomous. Changing the pipeline is not — a human authorizes the repair.
+> Diagnosis is autonomous. Mutation is not: a human authorizes one constrained repair. If it fails verification BlackBox reverts it, and nothing reaches GitHub until the fix earns verified.
 
-### 1:42 – 1:55 — Real code, really executed (30 words)
+### 1:45 – 1:55 — Real code, really executed (23 words)
 
 **On screen:** the unified diff in the resolution card.
 
-> It writes the fix into the actual transform — a provider-scoped normalization, not a blanket divide — then rebuilds the warehouse for real.
+> It writes the fix into the actual transform — provider-scoped, not a blanket divide — then rebuilds the warehouse for real.
 
 ### 1:55 – 2:10 — Verification (34 words)
 

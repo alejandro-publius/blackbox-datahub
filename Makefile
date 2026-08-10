@@ -1,7 +1,7 @@
 # BlackBox — Autonomous Data Incident Response
 UV := uv run
 
-.PHONY: setup demo-reset demo-healthy build test baselines datahub-up datahub-setup ingest api frontend demo-run evals e2e
+.PHONY: judge-check setup demo-reset demo-healthy build test baselines datahub-up datahub-setup ingest api frontend demo-run evals e2e
 
 setup:
 	uv sync
@@ -60,6 +60,11 @@ demo-run:
 	wait
 
 ## -- verification -------------------------------------------------------------
+
+# Deterministic, keyless proof path for judges — same evidence CI runs.
+# No Anthropic key, no live DataHub, no remote. Restores the incident fixture.
+judge-check:
+	bash scripts/judge_check.sh
 
 evals:
 	$(UV) python -m evals.run_evals
