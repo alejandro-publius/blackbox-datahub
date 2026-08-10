@@ -26,6 +26,14 @@ dependencies = [
     "datahub-agent-context>=1.6.0.8.post1",
 ]
 
+[project.optional-dependencies]
+tracing = [
+    "arize-phoenix>=14.6.0",
+    "openinference-instrumentation-anthropic>=1.1.2",
+    "opentelemetry-exporter-otlp>=1.44.0",
+    "opentelemetry-sdk>=1.44.0",
+]
+
 [dependency-groups]
 dev = [
     "playwright>=1.62.0",

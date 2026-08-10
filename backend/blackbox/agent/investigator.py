@@ -8,7 +8,7 @@ from typing import Any
 
 from anthropic import Anthropic
 
-from .. import repair, warehouse
+from .. import repair, tracing, warehouse
 from ..config import settings
 from ..models import IncidentStage, IncidentState
 from ..store import IncidentStore
@@ -115,6 +115,11 @@ def _run_loop(
 
     nudges = 0
     try:
+      with tracing.span(
+          f"blackbox.{phase}", kind=tracing.AGENT,
+          **{"incident.id": state.id, "incident.phase": phase,
+             "incident.report": state.report_text[:200]},
+      ):
         for turn in range(MAX_TURNS):
             if executor.finished:
                 break
@@ -132,7 +137,7 @@ def _run_loop(
                     "stop_reason": resp.stop_reason,
                     "text": " ".join(b.text for b in resp.content if b.type == "text")[:2000],
                     "tools": [{"name": t.name, "input_keys": sorted((t.input or {}).keys())} for t in tool_uses],
-                    "usage": {"in": resp.usage.input_tokens, "out": resp.usage.output_tokens},
+                    "usage": {"in": resp.usage.input_tokens, "out": resp.usage.output_tokens},  # noqa: E501
                 }
             )
             messages.append({"role": "assistant", "content": resp.content})
@@ -153,7 +158,17 @@ def _run_loop(
 
             results = []
             for tu in tool_uses:
-                out = executor.dispatch(tu.name, dict(tu.input or {}))
+                # One span per deterministic tool call — this is where the facts
+                # come from, so it's what a reader of the trace most wants to see.
+                with tracing.span(
+                    f"tool.{tu.name}", kind=tracing.TOOL,
+                    **{"tool.name": tu.name, "incident.turn": turn,
+                       "incident.stage": state.stage.value},
+                ) as sp:
+                    out = executor.dispatch(tu.name, dict(tu.input or {}))
+                    sp.set_attribute("tool.result_chars", len(out))
+                    sp.set_attribute("incident.stage_after", state.stage.value)
+                    sp.set_attribute("incident.evidence_count", len(state.evidence))
                 log({"turn": turn, "tool_result_for": tu.name, "result": out[:1500]})
                 results.append({"type": "tool_result", "tool_use_id": tu.id, "content": out})
             messages.append({"role": "user", "content": results})
@@ -174,7 +189,39 @@ def _run_loop(
         state.stage = IncidentStage.FAILED
         _cleanup_unverified_patch(state)
     store.save(state)
+    _annotate_outcome(state, phase)
     return state
+
+
+def _annotate_outcome(state: IncidentState, phase: str) -> None:
+    """Pin the deterministic outcomes onto the trace: gate result, invariants,
+    restored KPI, writeback. These are the facts a reviewer scans for."""
+    rc = state.root_cause
+    attrs: dict[str, Any] = {
+        f"{phase}.final_stage": state.stage.value,
+        "incident.root_cause_confirmed": rc is not None,
+        "incident.evidence_items": len(state.evidence),
+        "incident.hypotheses": len(state.hypotheses),
+    }
+    if rc is not None:
+        attrs["incident.root_cause_asset"] = rc.asset_urn
+        attrs["incident.root_cause_field"] = rc.field
+    if state.tests_after is not None:
+        t = state.tests_after
+        attrs["verification.invariants"] = f"{t.passed}/{t.total}"
+        attrs["verification.all_passed"] = t.failed == 0
+    if state.metric_after is not None:
+        attrs["verification.kpi_anomaly_ratio"] = round(state.metric_after.anomaly_ratio, 4)
+    if state.metric_before is not None:
+        attrs["symptom.kpi_anomaly_ratio"] = round(state.metric_before.anomaly_ratio, 4)
+    if state.writeback is not None:
+        attrs["writeback.status"] = state.writeback.status
+        attrs["writeback.incident_urn"] = state.writeback.incident_urn
+    if state.git_artifact is not None:
+        attrs["repair.branch"] = state.git_artifact.branch
+        attrs["repair.pr_url"] = state.git_artifact.pr_url
+    tracing.annotate(**attrs)
+    tracing.shutdown()  # flush before the worker thread exits
 
 
 def _cleanup_unverified_patch(state: IncidentState) -> None:

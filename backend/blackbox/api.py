@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-from . import warehouse
+from . import tracing, warehouse
 from .agent.investigator import run_investigation, run_repair_phase
 from .agent.tools import infer_layer
 from .config import REPO_ROOT, settings
@@ -103,6 +103,23 @@ class ReportIn(BaseModel):
     report_text: str
 
 
+def _traced(fn, *args, **kwargs):
+    """Run a background investigation inside the caller's trace.
+
+    The work happens on a worker thread, so without carrying the OTel context
+    across the boundary its spans would land in a separate, orphaned trace
+    instead of the one incident timeline we want to show. No-op when tracing
+    is off.
+    """
+    token = tracing.capture_context()
+
+    def _run() -> None:
+        with tracing.continue_context(token):
+            fn(*args, **kwargs)
+
+    return _run
+
+
 @app.post("/api/incidents")
 def create_incident(body: ReportIn) -> dict:
     if not settings.anthropic_api_key:
@@ -110,7 +127,7 @@ def create_incident(body: ReportIn) -> dict:
     state = IncidentState(report_text=body.report_text.strip())
     store.save(state)
     threading.Thread(
-        target=run_investigation, args=(state.id, store), kwargs={"pause_before_repair": True},
+        target=_traced(run_investigation, state.id, store, pause_before_repair=True),
         daemon=True, name=f"investigate-{state.id}",
     ).start()
     return {"incident_id": state.id}
@@ -142,7 +159,8 @@ def start_repair(incident_id: str) -> dict:
     if state.root_cause is None or state.stage != IncidentStage.ROOT_CAUSE_CONFIRMED:
         raise HTTPException(409, f"incident is in stage {state.stage}; repair needs a confirmed root cause")
     threading.Thread(
-        target=run_repair_phase, args=(incident_id, store), daemon=True, name=f"repair-{incident_id}",
+        target=_traced(run_repair_phase, incident_id, store),
+        daemon=True, name=f"repair-{incident_id}",
     ).start()
     return {"ok": True}
 
