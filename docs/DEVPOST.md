@@ -21,7 +21,7 @@ BlackBox is an incident-response command center for data pipelines. Report a sym
 - quantifies the symptom against committed baselines, forms hypotheses over every upstream branch, and eliminates distractors with real profiling (a suspicious stale-FX feed is ruled out quantitatively);
 - **proves the root cause** — the `confirm_root_cause` action is machine-validated and rejected unless the agent cites DataHub lineage evidence plus quantitative evidence naming the blamed field;
 - raises a real **ACTIVE incident in DataHub** on affected assets, then **repairs the pipeline**: it writes new transform SQL, the system computes the actual diff, applies it, rebuilds the warehouse, and reruns all 32 data invariants plus the KPI;
-- commits the verified fix on a `blackbox/fix-*` git branch, resolves the DataHub incident (**RESOLVED/FIXED** with the remediation record), appends an incident-history note to the dataset docs, and tags the asset — durable institutional memory in the catalog.
+- commits the verified fix on a `blackbox/fix-*` git branch and **opens a real pull request** — [PR #1](https://github.com/alejandro-publius/blackbox-datahub/pull/1) was opened by the agent itself and is left open for judges; then resolves the DataHub incident (**RESOLVED/FIXED** with the remediation record), appends an incident-history note to the dataset docs, and tags the asset — durable institutional memory in the catalog.
 
 Demo result: revenue 93.3× → 0.93×, 32/32 invariants green, real incident urn in DataHub.
 

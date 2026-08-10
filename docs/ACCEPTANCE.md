@@ -16,6 +16,7 @@ runnable by a judge; artifacts are committed so they can be inspected without an
 | 9 | Tests validate it | ✅ | `repair_verified ✓` — **32/32** invariants green post-repair |
 | 10 | Business metric demonstrably restored | ✅ | KPI 93.3× → **0.93×**; `repair_restores_baseline ✓` (within 1% of committed healthy baseline, not just the loose KPI window) |
 | 11 | Git artifact exists | ✅ | `blackbox/fix-<incident>` branch, real commit, via isolated worktree (`git_artifact` in incident state) |
+| 11b | **Real GitHub PR, opened by the agent** | ✅ | **[PR #1](https://github.com/alejandro-publius/blackbox-datahub/pull/1)** — produced end-to-end by the verified-repair path on incident `inc_17b054bc01` (`BLACKBOX_CREATE_PR=true`), left OPEN for inspection. Body rendered only from recorded evidence. Publication is post-verification and non-gating; default off |
 | 12 | Incident context written back to DataHub | ✅ | `writeback_done ✓` — native incident raised ACTIVE at confirmation → `RESOLVED/FIXED`; docs note + `blackbox-remediated` tag. Screenshots `05-datahub-incident.png`, `05b-datahub-remediation.png` |
 | 13 | UI demonstrates the full workflow | ✅ | `docs/screenshots/01..06` — intake → investigation → root cause → resolution → reset |
 | 14 | Demo reset works | ✅ | `POST /api/demo/reset` idempotent: transforms restored, sources regenerated, incidents cleared, fix branches dropped, **DataHub writeback state scrubbed**, metadata re-synced |

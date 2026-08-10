@@ -80,8 +80,10 @@ Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md
 
 | | |
 |---|---|
-| **Status** | None yet. No connector, skill, fix, RFC, or docs PR filed. The feedback survey ($50 track, also judge-visible goodwill) is likewise unsubmitted. |
-| **Next improvement** | Lowest-cost credible option before the deadline: a docs improvement PR (e.g. documenting the `fineGrainedLineages` aspect read pattern used in `client.py`, which required non-obvious aspect-level access) and the feedback survey. |
+| **What BlackBox does** | **Two upstream PRs, both open (neither merged — we do not claim otherwise).** (1) [datahub-skills#133](https://github.com/datahub-project/datahub-skills/pull/133) — `datahub-incident-investigation`, a reusable vendor-neutral Skill extracting this project's evidence-gated methodology (symptom framing → lineage localization → competing hypotheses → quantitative elimination on necessity **and** sufficiency → confirmation gate → blast radius → remediation → verification → writeback). Every recipe in it was executed against live DataHub OSS before filing; that validation surfaced three upstream-relevant findings (`health` returns a list; `editableProperties.description` can hold the contract while `properties.description` is null; OSS exposes no top-level `incident(urn:)` query). (2) [datahub#19046](https://github.com/datahub-project/datahub/pull/19046) — troubleshooting docs for a silent quickstart hang under Colima/Rancher/Podman that cost us real time. |
+| **Evidence in repo** | [`docs/SKILL_VALIDATION.md`](SKILL_VALIDATION.md) (verbatim execution log), [`docs/DATAHUB_FEEDBACK_LOG.md`](DATAHUB_FEEDBACK_LOG.md) |
+| **Current weakness** | Both PRs are open and unreviewed; #133's CI needs a maintainer to approve a first-time-contributor run. The Skill deliberately does **not** execute warehouse repairs — it emits portable recipes — so it generalizes the methodology, not the automation. |
+| **Next improvement** | Respond to maintainer review; submit the feedback survey. |
 
 ---
 

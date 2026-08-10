@@ -19,65 +19,99 @@ Target runtime: **2:55** (hard limit is *under* 3:00 — Devpost rule). Narratio
 
 ---
 
-## Script
+## Script — 2:52 target
 
-### 0:00 – 0:15 — Hook (34 words)
+Total narration ≈ 400 words at ~140 wpm. The through-line is **proof → action → proof**: never show a claim without the receipt next to it.
 
-**On screen:** BlackBox command center. KPI strip shows Executive Revenue **$2,737,323** vs expected **~$29,349** — anomaly badge **93.3x**. Slow zoom on the number.
+### 0:00 – 0:15 — The stakes (36 words)
 
-**Narration:**
-> Every data team has lived this morning: the executive revenue KPI is up ninety-three x, and nothing crashed. No errors, no alerts — just a wrong number. This is BlackBox: Sentry for your data stack.
+**On screen:** command center, Executive Revenue **$2,737,324** with the red **93× EXPECTED** badge; slow push in on the number.
 
-### 0:15 – 0:35 — Report the incident (39 words)
+> Every data team has lived this morning. Revenue is up ninety-three times. Nothing crashed, no job failed, no alert fired. The schema is still valid — the number is just wrong.
 
-**Clicks:** Click **Investigate Incident**. The dialog opens with the plain-English report prefilled: *"Revenue just jumped roughly 100x on the executive dashboard. Is this real?"* Click **Start Investigation**. The stage pill flips `REPORTED → CONTEXT_DISCOVERY`; first evidence cards appear.
+### 0:15 – 0:25 — One plain-English report (25 words)
 
-**Narration:**
-> I file one plain-English incident report — the kind an on-call human actually writes. BlackBox picks it up live: the stage pill flips to context discovery, and the agent's first move is not the data — it's DataHub, to learn what this KPI even means.
+**Clicks:** **Investigate Incident** → dialog prefilled *"Revenue just jumped roughly 100x on the executive dashboard. Is this real?"* → **Start Investigation**.
 
-### 0:35 – 1:15 — Live DataHub-driven investigation (91 words; sped-up footage)
+> That's the entire input. One sentence, the kind an on-call engineer actually writes. BlackBox takes it from there — autonomously.
 
-**Clicks:** Stay on Tab 1. Let the timeline fill: DataHub search → dataset context (contract docs) → lineage traversal (React Flow graph draws itself, nodes turn `investigating`/`suspicious`). Click the **Hypotheses** tab when the FX hypothesis flips to `eliminated`; hover the profile-by-`payment_processor` evidence card.
+### 0:25 – 0:45 — DataHub is the map (44 words)
 
-**Narration:**
-> Watch the timeline. Every card is a real tool result: DataHub search finds the metric, its schema docs carry the data contract, and real column-level lineage draws this graph — no hardcoded topology. The agent quantifies the symptom against a committed healthy baseline: onset August seventh, ninety-three x. It registers hypotheses for every upstream branch. The FX feed looks suspicious — it went stale — but profiling shows a two-percent effect. Eliminated, with cited evidence. Then it profiles order amounts segmented by payment processor, straight from the lineage path, and one segment lights up.
+**On screen:** timeline fills with `DATAHUB` badges; React Flow graph draws itself; nodes flip to *investigating*.
 
-### 1:15 – 1:40 — ROOT CAUSE CONFIRMED (53 words)
+> Its first move isn't the data — it's DataHub. It searches the catalog through the official MCP server, reads the data contract on the field, and walks column-level lineage upstream from the KPI. It never guesses the topology.
 
-**On screen:** the `RootCauseCard` drawer slides up: summary sentence, blamed asset `raw.raw_orders`, field `amount`, cited evidence ids. Lineage graph: root-cause node red, downstream nodes marked `affected`.
+### 0:45 – 0:55 — Competing hypotheses (23 words)
 
-**Narration:**
-> Root cause confirmed: cloudpay_v2 orders report amounts in cents, not dollars, from the August seventh cutover — a semantic failure the schema can't catch. And here's the key: this confirmation is machine-validated. The system rejects any root cause that doesn't cite DataHub lineage plus quantitative evidence naming the blamed field. The agent cannot bluff.
+**Clicks:** **Hypotheses** tab.
 
-### 1:40 – 2:10 — Repair & Verify (68 words; sped-up footage)
+> It doesn't chase one hunch. It opens competing hypotheses across every upstream branch — the order stream and the currency feed both suspects.
 
-**Clicks:** Click **Repair & Verify** on the RootCauseCard. Stage pill: `REPAIR_GENERATED → REPAIR_TESTING → VERIFIED`. `ResolutionCard` appears: unified diff of `pipeline/transforms/stg_orders.sql`, test report **32/32 passed**, before/after KPI.
+### 0:55 – 1:10 — Eliminating the distractor (34 words)
 
-**Narration:**
-> I authorize the repair — a human stays in the loop. The agent reads the staging transform and proposes a targeted fix: normalize cents to dollars only for post-cutover cloudpay_v2 rows. That's a real unified diff, applied to the real file. The warehouse rebuilds, and the full thirty-two-test invariant suite runs. All green — and the KPI recomputes back to one-point-oh. Verification is the gate; no green suite, no fix.
+**On screen:** the FX hypothesis flips to **eliminated**; hover its cited evidence.
 
-### 2:10 – 2:35 — The receipts, in DataHub itself (51 words)
+> The stale currency feed looks guilty and isn't. BlackBox kills it with arithmetic: rates moved under half a percent, two orders of magnitude too small to explain a hundred-x. Eliminated on evidence, not vibes.
 
-**Clicks:** Point at the ResolutionCard's git line (`blackbox/fix-<id>` + commit). Switch to Tab 2 (DataHub UI) and refresh: show the dataset's **Documentation** tab with the appended **Incident history** note (root cause, patch file, branch/commit, 32/32 verification) and the **blackbox-remediated** tag in the sidebar.
+### 1:10 – 1:20 — Root cause (26 words)
 
-> ⚠️ **Capture gotcha (learned in the drill):** DataHub's **Incidents** tab lists *ACTIVE* incidents only. Once BlackBox resolves the incident it disappears from that tab, so filming the Incidents tab *after* the repair shows an empty list. Either (a) film the Incidents tab during the investigation window — the incident is raised ACTIVE the moment the root cause is confirmed, and shows as `Critical (1) · [BlackBox] …` with 4 assets (see `docs/screenshots/05-datahub-incident.png`) — and then show the Documentation note after the repair, or (b) show only the Documentation note + tag here. Option (a) is the stronger story: raised → resolved.
+**On screen:** the **ROOT CAUSE CONFIRMED** card.
 
-**Narration:**
-> The fix is committed to a real git branch. And here — in DataHub's own UI — is the writeback: a resolved incident on the affected datasets with the root cause and test results, a remediation note appended to the docs, and a blackbox-remediated tag. The context graph now remembers this outage forever.
+> `raw_orders.amount`. A payment provider cut over and started sending integer cents where the contract says dollars. Every order inflated exactly one hundred times.
 
-### 2:35 – 2:55 — Architecture + why DataHub matters (47 words)
+### 1:20 – 1:35 — The gate (37 words)
 
-**On screen:** the architecture diagram from `docs/ARCHITECTURE.md` (one static slide), then cut back to the healthy KPI with the end card: "BlackBox — Autonomous Data Incident Response".
+**On screen:** hold on the cited evidence chips.
 
-**Narration:**
-> Under the hood: Claude drives strategy, but every fact comes from deterministic tools, and DataHub is the map — schemas, contracts, and lineage in; incidents, docs, and tags back out. The scenario is synthetic and disclosed; every number you saw was real execution. BlackBox — autonomous data incident response.
+> Here's the part that matters. That conclusion had to pass a gate written in code, not prose: cite DataHub lineage evidence, and cite quantitative evidence naming that exact field. The agent cannot talk its way past it.
 
-### 2:55 — End card, cut to black. Total narration: 383 words.
+### 1:35 – 1:42 — Human authorization (17 words)
+
+**Clicks:** hover, then press **Repair & Verify**.
+
+> Diagnosis is autonomous. Changing the pipeline is not — a human authorizes the repair.
+
+### 1:42 – 1:55 — Real code, really executed (30 words)
+
+**On screen:** the unified diff in the resolution card.
+
+> It writes the fix into the actual transform — a provider-scoped normalization, not a blanket divide — then rebuilds the warehouse for real.
+
+### 1:55 – 2:10 — Verification (34 words)
+
+**On screen:** **32/32 TESTS PASSED**; before/after KPI **$2,737,324 → $27,373**.
+
+> Then it has to prove the repair. The full invariant suite: thirty-two of thirty-two. And the KPI lands within one percent of the committed healthy baseline.
+
+### 2:10 – 2:18 — The bad repair we reject (25 words)
+
+**On screen:** cut to `evals/results/latest.md`, the `bad_repair_rejected` row.
+
+> We also test the opposite. A naive fix that restores the headline number while corrupting history gets rejected by the historical invariants.
+
+### 2:18 – 2:30 — The engineering artifact (28 words)
+
+**On screen:** the git row, then the real GitHub pull request.
+
+> The verified fix lands as a real pull request — the diff, the evidence, the before-and-after, the test results. A reviewable artifact, not a chat log.
+
+### 2:30 – 2:42 — DataHub remembers (28 words)
+
+**On screen:** DataHub UI — the incident, then the remediation note and tag on the dataset.
+
+> And the resolution goes back into DataHub: the incident resolved, the root cause written onto the asset. The next engineer inherits the investigation.
+
+### 2:42 – 2:52 — The punchline (27 words)
+
+**On screen:** architecture diagram, then the healthy KPI end card.
+
+> Claude decides what to investigate. Deterministic tools decide what is true. DataHub is both the map it investigates with and the memory it leaves behind.
 
 ---
 
-## Fallback notes
+## Shot notes
 
-- If the live run stalls or exceeds `MAX_TURNS`, `POST /api/demo/reset` and re-record — the fixture is byte-identical every run.
-- Keep at least one clean full recording before attempting stylistic retakes; the deadline is Aug 10, 5:00 PM ET.
-- Do not include third-party trademarks or music (Devpost rule). DataHub's own UI shown for the writeback is the product being integrated with — that is the point of the category.
+- **DataHub Incidents tab lists ACTIVE only.** Film the incident during the investigation window (it's raised the moment the cause is proven — `docs/screenshots/05-datahub-incident.png`), then show the Documentation note after the repair. Filming that tab post-repair shows an empty list.
+- **Speed up 0:25–1:10 and 1:42–1:55.** The live run is ~2-3 minutes; caption accelerated sections "footage sped up". Every number on screen stays real.
+- **Optional 2-second inserts** if the cut runs short: the Phoenix trace (`07-phoenix-trace.png`) showing one incident as one trace, and the upstream PRs. Cut these first if long — they are depth, not story.
+- **Do not** narrate the framework list. The judge should remember proof → action → proof.
