@@ -91,15 +91,27 @@ jobs:
       # The fixture is seeded and anchored to a fixed day, so this is exact: a
       # healthy build must satisfy every invariant. Anything less means the
       # fixture, the transforms, or the committed baselines have drifted.
-      # The count is asserted too, so a collection error can never pass as green.
-      - name: All 32 invariants must pass
+      - name: All invariants must pass
+        run: uv run --frozen pytest pipeline/invariants -q --junitxml=invariants.xml
+
+      # The count is asserted separately, so a shrunken or half-collected suite
+      # can never pass as green. (pyproject already sets `-q`, so the CLI flag
+      # above makes it `-qq` and pytest prints no "32 passed" summary to grep —
+      # the junit report is the reliable source.)
+      - name: The suite must be exactly 32/32
         run: |
-          out=$(uv run --frozen pytest pipeline/invariants -q)
-          echo "$out"
-          echo "$out" | grep -qE '(^|[^0-9])32 passed' || {
-            echo "::error::expected exactly 32 passing invariants on the healthy fixture"
-            exit 1
-          }
+          uv run --frozen python - <<'PY'
+          import sys, xml.etree.ElementTree as ET
+
+          root = ET.parse("invariants.xml").getroot()
+          suite = root if root.tag == "testsuite" else root.find("testsuite")
+          total = int(suite.get("tests", 0))
+          bad = int(suite.get("failures", 0)) + int(suite.get("errors", 0))
+          skipped = int(suite.get("skipped", 0))
+          print(f"{total - bad - skipped}/{total} invariants passed ({skipped} skipped)")
+          if (total, bad, skipped) != (32, 0, 0):
+              sys.exit("::error::the healthy fixture must be exactly 32/32 with nothing skipped")
+          PY
 
   frontend:
     name: frontend lint + build
