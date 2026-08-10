@@ -73,7 +73,9 @@ export function RootCauseCard({
             <span className="text-zinc-500"> · field </span>
             {rootCause.field}
           </p>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
+          {/* The agent's full derivation runs long; cap it so the headline,
+              impact stats and CTA stay above the fold (scroll for the rest). */}
+          <p className="mt-2 max-h-44 max-w-2xl overflow-auto pr-2 text-sm leading-relaxed text-zinc-400">
             {rootCause.detail}
           </p>
         </div>

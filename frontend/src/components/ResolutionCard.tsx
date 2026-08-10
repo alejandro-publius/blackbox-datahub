@@ -93,12 +93,6 @@ export function ResolutionCard({
         )}
       </div>
 
-      {finalSummary && (
-        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-400">
-          {finalSummary}
-        </p>
-      )}
-
       {(metricBefore || metricAfter) && (
         <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3">
           <div>
@@ -209,6 +203,22 @@ export function ResolutionCard({
             {writeback.status}
           </span>
         </div>
+      )}
+
+      {/* The agent's full post-mortem is long and markdown-flavoured: keep the
+          hero stats above the fold and let judges expand the prose on demand. */}
+      {finalSummary && (
+        <details className="group mt-3 rounded-lg border border-zinc-800 bg-zinc-950">
+          <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase select-none hover:text-zinc-200">
+            <span className="mr-1.5 inline-block transition-transform group-open:rotate-90">
+              ›
+            </span>
+            Full incident report
+          </summary>
+          <pre className="max-h-80 overflow-auto border-t border-zinc-800 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-zinc-400">
+            {finalSummary}
+          </pre>
+        </details>
       )}
     </motion.div>
   );
