@@ -53,3 +53,23 @@ Concise, append-only. Newest entries at the bottom. Survives context compaction.
 - DataHub is load-bearing: lineage traversal, schema/description context, ownership, incident writeback via OSS APIs.
 - Backend: Python 3.11 via uv, FastAPI, Pydantic. Frontend: Next.js + TS + Tailwind + React Flow.
 - Agent: Claude API with tool-use loop; deterministic tools for SQL/profiling/lineage; LLM for strategy/hypotheses/repair-planning.
+
+## 2026-08-10 ~02:30 — Four upgrades landed on top of the verified submission
+Checkpoint `216fa94` tagged `verified-submission-checkpoint` before any change; never needed.
+
+- **A — upstream skill**: datahub-project/datahub-skills#133 OPEN (16 files, +1259/-48).
+  `datahub-incident-investigation`, vendor-neutral, positioned against datahub-quality
+  (detect/record vs explain/resolve). Validated live → docs/SKILL_VALIDATION.md; found 3
+  upstream issues (health is a list; editableProperties holds the contract; no OSS
+  incident(urn:) query).
+- **B — repair PR + CI**: publish_repair_pr behind BLACKBOX_CREATE_PR (default off),
+  4-layer failure isolation. CI green (backend tests, healthy 32/32, frontend, secrets).
+  Caught: setup-uv pin too old for uv.lock rev 3; `-qq` hid pytest's summary from a grep.
+- **C — Agent Context Kit**: embedded transport, chain MCP → ACK → GraphQL, per-fact
+  EvidenceItem.transport. Cloud-only tools excluded + test. Verified live on OSS.
+- **D — Phoenix**: optional `[tracing]` extra + BLACKBOX_TRACING (default off), one trace
+  per investigation incl. cross-thread context. Caught a real double-yield bug in my own
+  span() that failed investigations; regression test added.
+
+Final verification with everything live: six-act drill PASSED, WRITEBACK_COMPLETE,
+32/32, KPI 93.3x → 0.93x, 68 spans in Phoenix, 50 tests, CI success, 0 secrets.
