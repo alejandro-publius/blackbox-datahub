@@ -114,6 +114,11 @@ class EvidenceItem(BaseModel):
     detail: str
     data: Any = None
     source: EvidenceSource
+    # Which concrete transport produced this fact — e.g. "datahub-mcp-server",
+    # "datahub-agent-context", "datahub-graphql", "duckdb", "pytest", "git".
+    # DataHub facts can arrive over several transports; all read the same graph,
+    # so this is provenance for the reader, not a claim of independent sources.
+    transport: str | None = None
 
 
 class ProposedPatch(BaseModel):

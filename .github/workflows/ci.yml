@@ -42,7 +42,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: "0.5.29"
+          version: "0.11.28"   # must be >= the uv that wrote uv.lock (revision 3)
           enable-cache: true
           cache-dependency-glob: uv.lock
 
@@ -73,7 +73,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: "0.5.29"
+          version: "0.11.28"   # must be >= the uv that wrote uv.lock (revision 3)
           enable-cache: true
           cache-dependency-glob: uv.lock
 

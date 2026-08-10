@@ -74,6 +74,10 @@ export interface EvidenceItem {
   detail: string;
   data?: unknown;
   source: "datahub" | "warehouse" | "pipeline" | "git" | "agent";
+  /** Concrete transport that produced this fact (e.g. "datahub-mcp-server",
+   *  "datahub-agent-context", "datahub-graphql"). Provenance, not an
+   *  independent source of truth — DataHub transports all read one graph. */
+  transport?: string | null;
 }
 
 export interface ProposedPatch {

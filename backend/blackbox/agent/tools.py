@@ -226,8 +226,33 @@ class ToolExecutor:
         if self.state.can_advance_to(target):
             self.state.stage = target
 
-    def _record(self, kind: str, source: str, title: str, detail: str, data: Any) -> EvidenceItem:
-        ev = EvidenceItem(kind=kind, source=source, title=title, detail=detail, data=data)
+    # Default transport per evidence source; DataHub facts override this with the
+    # concrete transport the client actually used (MCP server / ACK / GraphQL).
+    _DEFAULT_TRANSPORT = {
+        "warehouse": "duckdb",
+        "pipeline": "pytest",
+        "git": "git",
+        "agent": "agent",
+    }
+
+    def _record(
+        self,
+        kind: str,
+        source: str,
+        title: str,
+        detail: str,
+        data: Any,
+        transport: str | None = None,
+    ) -> EvidenceItem:
+        if transport is None:
+            # DataHub clients report the transport they used as `via` on the payload.
+            if isinstance(data, dict) and isinstance(data.get("via"), str):
+                transport = data["via"]
+            else:
+                transport = self._DEFAULT_TRANSPORT.get(source)
+        ev = EvidenceItem(
+            kind=kind, source=source, title=title, detail=detail, data=data, transport=transport
+        )
         self.state.evidence.append(ev)
         return ev
 
@@ -282,9 +307,11 @@ class ToolExecutor:
 
         res = dh.search(query)
         self._advance(IncidentStage.CONTEXT_DISCOVERY)
+        # search returns a list; the transport is reported per-hit
+        via = next((r.get("via") for r in res if isinstance(r, dict) and r.get("via")), None)
         ev = self._record(
             "metadata", "datahub", f"DataHub search: “{query}”",
-            f"{len(res)} entities matched", res,
+            f"{len(res)} entities matched", res, transport=via,
         )
         return {"evidence_id": ev.id, "results": res}
 
