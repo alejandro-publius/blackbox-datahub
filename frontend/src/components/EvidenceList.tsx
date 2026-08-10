@@ -8,6 +8,18 @@ import { SOURCE_STYLES } from "@/lib/status";
 import type { EvidenceItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+/** Compact labels for the transport that produced a fact. Unknown values fall
+ *  through to the raw string rather than being hidden. */
+const TRANSPORT_LABELS: Record<string, string> = {
+  "datahub-mcp-server": "MCP",
+  "datahub-mcp-server+graphql": "MCP",
+  "datahub-agent-context": "ACK",
+  "datahub-graphql": "GRAPHQL",
+  duckdb: "DUCKDB",
+  pytest: "PYTEST",
+  git: "GIT",
+};
+
 export const KIND_LABELS: Record<EvidenceItem["kind"], string> = {
   metadata: "METADATA",
   profile: "PROFILE",
@@ -57,6 +69,17 @@ export function EvidenceList({ items }: { items: EvidenceItem[] }) {
               <span className="min-w-0 flex-1 truncate text-[13px] text-zinc-100">
                 {item.title}
               </span>
+              {/* Which concrete transport produced this fact. DataHub facts can
+                  arrive over MCP, the Agent Context Kit or GraphQL — all reading
+                  the same graph, so this is provenance, not corroboration. */}
+              {item.transport && (
+                <span
+                  className="hidden shrink-0 rounded border border-zinc-700/70 bg-zinc-800/40 px-1.5 py-px font-mono text-[9px] tracking-wider text-zinc-400 sm:inline"
+                  title={`produced by ${item.transport}`}
+                >
+                  {TRANSPORT_LABELS[item.transport] ?? item.transport}
+                </span>
+              )}
               <span
                 className={cn(
                   "shrink-0 rounded border px-1.5 py-px text-[9px] font-semibold tracking-wider",
