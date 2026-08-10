@@ -1,0 +1,128 @@
+{
+  "run": 5,
+  "started_at": "2026-08-10T05:52:15.403629+00:00",
+  "finished_at": "2026-08-10T05:59:34.255945+00:00",
+  "scenarios_requested": [
+    "control_no_incident",
+    "bad_repair_rejected",
+    "datahub_ablation"
+  ],
+  "trials": 1,
+  "consistency": null,
+  "results": [
+    {
+      "scenario": "control_no_incident",
+      "status": "passed",
+      "checks": {
+        "stage_no_incident": true,
+        "no_patch": true,
+        "transforms_unchanged": true,
+        "no_false_positive": true
+      },
+      "metrics": {
+        "false_positive": false,
+        "turns": 13,
+        "tool_calls": 27
+      },
+      "notes": [
+        "stage=NO_INCIDENT"
+      ],
+      "details": {
+        "final_stage": "NO_INCIDENT",
+        "final_summary": "Revenue is healthy; there is no data defect to repair.\n\nQuantitative check: every one of the last 14 days matches the committed baseline (pipeline/baselines/daily_revenue_baseline.json) exactly \u2014 revenue_ratio = 1.0000 and aov_ratio = 1.0000 on all days, with identical order counts [ev_2c9bb3cd43]; the full 90-day series shows revenue_usd == baseline for every day [ev_b3d0acd2af]. The executive KPI's anomaly_ratio of 0.9327 on 2026-08-09 (status \"ok\") is ordinary weekend seasonality: 2026-08-09 is a Sunday, and prior Sundays sit in the same band (2026-08-02: 30,245; 2026-07-26: 28,056; 2026-07-19: 26,107) [ev_b3d0acd2af]. The full data-quality invariant suite passes 32/32 [ev_39d0ebb598].\n\nThe only real change this week is a BENIGN one: the payments-platform provider migration, documented in DataHub as beginning 2026-08-07 [ev_2e51cca84b]. legacy_pos + shopgate stop on 2026-08-06 and cloudpay_v2 takes 100% of volume from 2026-08-07, with no dual-write overlap [ev_cf34723477]. It does not distort any metric:\n- amount stays in MAJOR currency units per contract v1.3 \u2014 cloudpay_v2 USD completed-order medians 66.22 / 59.72 / 62.54 vs legacy_pos 58.96-63.73 and shopgate 57.88-72.60 [ev_bc1a5f3c7d]; no 100x cents inflation, so the previously remediated incident inc_631dde6595 has neither recurred nor been over-corrected.\n- status vocabulary is unchanged (completed | cancelled | refunded) so the stg_orders exclusion filter still works [ev_cf34723477, ev_5638436733]; currency set unchanged (USD/EUR/GBP/CAD) so no rows are dropped by the fct_revenue FX join (2026-08-09 order_count 327 = 312 USD + 9 EUR + 5 GBP + 1 CAD).\n- no duplicate order_ids and no null/non-positive amounts on any day [ev_834d4b68d6]; mart aov_median_usd is flat across the cutover (64.84, 59.72, 62.13 vs 59.74-66.05 before) [ev_bb29e63512].\n\nThe stale FX feed (rates frozen from 2026-08-05) is the documented forward-fill behaviour of staging.stg_fx_rates [ev_dcd6c6795b, ev_039539950f]; with non-USD at only 3.3-7.7% of daily revenue [ev_9d28e7428f] and ~0.1% daily rate drift, its worst-case effect is under 0.01% of revenue \u2014 far too small to be the reported symptom.\n\nConclusion: no incident. Recommendation: refresh the FX feed (rates have been static since 2026-08-05) as routine hygiene, and tell Finance the week-over-week softness is day-of-week mix plus the expected processor cutover, not a data error.",
+        "error": null,
+        "n_evidence": 21,
+        "n_hypotheses": 2,
+        "root_cause": null
+      },
+      "incident_id": "inc_399cacd851",
+      "wall_time_s": 132.65,
+      "trial": 1,
+      "started_at": "2026-08-10T05:52:15.462963+00:00",
+      "disable_datahub": false,
+      "description": "Healthy data + vague report: the agent must conclude NO_INCIDENT and touch nothing (false-positive control)."
+    },
+    {
+      "scenario": "bad_repair_rejected",
+      "status": "passed",
+      "checks": {
+        "bad_repair_rejected": true,
+        "immutability_caught": true,
+        "environment_restored": true
+      },
+      "metrics": {
+        "tests_total": 32,
+        "tests_failed": 11,
+        "kpi_anomaly_ratio_after_bad_patch": 93.268
+      },
+      "notes": [
+        "verify gate returned ok=False; 11/32 invariants failed; immutability caught it (4 historical failures)"
+      ],
+      "details": {
+        "failing_tests": [
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-03]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-04]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-05]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-06]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-07]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-08]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-09]",
+          "pipeline.invariants.test_invariants::test_historical_immutability_aggregate",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-05-20]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-06-25]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-07-30]"
+        ],
+        "immutability_failures": [
+          "pipeline.invariants.test_invariants::test_historical_immutability_aggregate"
+        ],
+        "historical_failures": [
+          "pipeline.invariants.test_invariants::test_historical_immutability_aggregate",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-05-20]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-06-25]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-07-30]"
+        ],
+        "patch_diff": "--- a/pipeline/transforms/stg_orders.sql\n+++ b/pipeline/transforms/stg_orders.sql\n@@ -7,7 +7,7 @@\n     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n     customer_id,\n     currency,\n-    CAST(amount AS DOUBLE) AS amount,\n+    CAST(amount AS DOUBLE) / 100.0 AS amount,\n     payment_processor,\n     status\n FROM raw.raw_orders\n"
+      },
+      "incident_id": null,
+      "wall_time_s": 3.18,
+      "trial": 1,
+      "started_at": "2026-08-10T05:54:28.483812+00:00",
+      "disable_datahub": false,
+      "description": "Deterministic: a naive blanket /100 patch must be REJECTED by the verification gate via the historical-immutability invariants."
+    },
+    {
+      "scenario": "datahub_ablation",
+      "status": "passed",
+      "checks": {
+        "run_executed": true,
+        "datahub_load_bearing": true
+      },
+      "metrics": {
+        "ablated_final_stage": "FAILED",
+        "ablated_reached_terminal": false,
+        "ablated_root_cause_correct": false,
+        "turns": 51,
+        "tool_calls": 95
+      },
+      "notes": [
+        "error: investigation phase ended without reaching a verified terminal state",
+        "ablated run ended stage=FAILED, root_cause=none"
+      ],
+      "details": {
+        "final_stage": "FAILED",
+        "final_summary": "INCIDENT: REAL \u2014 revenue inflated exactly 100x from 2026-08-07. Root cause identified with warehouse-grade proof, but the platform's confirm/repair gate could NOT be satisfied because DataHub has been unreachable for the entire investigation (~50 consecutive failed calls to datahub_search / datahub_get_dataset / datahub_lineage). No repair was applied; the pipeline is still in a failing state and needs a human to apply the patch below (or confirm once DataHub is back).\n\nSYMPTOM (quantified)\n- marts.exec_revenue_metric, kpi_day 2026-08-09: revenue 2,737,323.50 vs expected 29,349.39, anomaly_ratio 93.27, status anomalous [ev_48c2286a36].\n- Onset is sharp and the magnitude is suspiciously exact: revenue_ratio vs the committed baseline is 1.0 on every day through 2026-08-06, then exactly 100.0 on 2026-08-07 (2,655,717.70), 2026-08-08 (2,738,360.82) and 2026-08-09 (2,737,323.50). Median AOV ratio is likewise ~100.0 (6,483.50 vs 64.84), while order_count is IDENTICAL to baseline (334 / 349 / 327) [ev_2f80d4178b]. Volume is normal; only per-order amounts moved \u2192 a unit/scale defect, not a business event.\n- Invariant suite: 25/32 pass, 7 fail \u2014 test_revenue_continuity for 2026-08-07/08/09 (80.6x\u201382.2x trailing median), test_aov_median_in_range for the same three days, and test_max_usd_amount_sane (max 55,262 USD) [ev_6b5fa01376].\n\nLINEAGE (from authoritative transform sources \u2014 DataHub unavailable)\nraw.raw_orders \u2192 staging.stg_orders (CAST(amount AS DOUBLE), filters cancelled/refunded) [ev_a8da63c433] \u2192 marts.fct_revenue (SUM(o.amount * fx.usd_rate), joined to staging.stg_fx_rates) [ev_fda0c96641] \u2192 marts.exec_revenue_metric [ev_5bde3ec652].\n\nEVIDENCE ISOLATING THE CAUSE\n- profile_column on staging.stg_orders.amount segmented by payment_processor: on 2026-08-04..06 the processors are legacy_pos and shopgate with medians ~60\u201368; from 2026-08-07 the entire stream is a single new processor, cloudpay_v2, with medians 6,422 / 5,980 / 6,134 and max 55,262 \u2014 a clean ~100x step [ev_c01fb4afbe].\n- Cutover is total and abrupt: legacy_pos and shopgate both end 2026-08-06; cloudpay_v2 starts 2026-08-07 and carries all 1,010 orders since [ev_daa11121be].\n- Every cloudpay_v2 amount is an integer (0 of 1,010 non-integer) \u2014 the signature of minor-unit (cents) reporting; raw rows confirm values like 1651.0, 3059.0, 32945.0 USD [ev_24112c0118, ev_e83c8147d4]. The inflation spans all currencies (USD/EUR/GBP/CAD medians ~4,500\u201311,300) [ev_6e10a2c616].\n- NECESSARY AND SUFFICIENT: dividing only cloudpay_v2 amounts by 100 reproduces the committed baseline to the cent \u2014 26,557.18 / 27,383.61 / 27,373.23 for 2026-08-07/08/09, exactly matching baseline_revenue_usd [ev_24112c0118 vs ev_2f80d4178b].\n\nALTERNATIVE ELIMINATED\n- stg_fx_rates corruption/forward-fill (hyp_9b611a5c32, eliminated): rates on 2026-08-07..09 are identical to 2026-08-05/06 (EUR 1.070478, GBP 1.270418, CAD 0.718958, USD 1.0), contributing nothing to the 100x [ev_7fef328316]. Order-volume and status-filter causes are also excluded: counts match baseline exactly and the status mix is normal (1,010 completed, 46 cancelled, 6 refunded) [ev_2f80d4178b, ev_80bcb630e9].\n\nROOT CAUSE (confirmed by data, hypothesis hyp_17765245c6 at 0.98)\nraw.raw_orders.amount \u2014 the 2026-08-07 payment-processor migration to cloudpay_v2 emits order amounts in MINOR units (cents) while the pipeline's contract treats amount as major units (dollars); staging.stg_orders passes the value through unscaled, so fct_revenue and the executive KPI are multiplied by exactly 100.\n\nREPAIR (prepared, NOT applied \u2014 propose_repair is gated behind confirm_root_cause, which rejects without DataHub lineage)\nNormalize the bad upstream unit semantics at the staging boundary in pipeline/transforms/stg_orders.sql, targeted to the offending source only (no history rewrite, no rows dropped):\n    CASE WHEN payment_processor = 'cloudpay_v2' THEN CAST(amount AS DOUBLE) / 100.0\n         ELSE CAST(amount AS DOUBLE) END AS amount\nExpected verification result: revenue for 2026-08-07/08/09 returns to 26,557.18 / 27,383.61 / 27,373.23 (ratio 1.0 vs baseline) and all 7 failing invariants (revenue_continuity, aov_median_in_range, max_usd_amount_sane) clear, restoring 32/32 [ev_24112c0118, ev_6b5fa01376].\n\nBLOCKER / HANDOFF: every DataHub call returned \"DataHub is unavailable (metadata service unreachable)\"; the warehouse contains no metadata mirror [ev_ea1ae3dab7, ev_6eef32f505]. I did not fabricate a lineage traversal to force the gate. Once DataHub is restored, traverse UPSTREAM from marts.exec_revenue_metric, confirm raw.raw_orders.amount, and apply the one-line staging patch above; also add a unit-contract invariant (per-processor median AOV bounds) so the next processor migration fails loudly at staging instead of on the executive dashboard.",
+        "error": "investigation phase ended without reaching a verified terminal state",
+        "n_evidence": 18,
+        "n_hypotheses": 2,
+        "root_cause": null,
+        "settings_blackbox_disable_datahub": true
+      },
+      "incident_id": "inc_d51151c5e1",
+      "wall_time_s": 302.29,
+      "trial": 1,
+      "started_at": "2026-08-10T05:54:31.764964+00:00",
+      "disable_datahub": true,
+      "description": "Same incident with DataHub tools disabled: the agent must NOT reach a correct confirmed root cause (DataHub is load-bearing)."
+    }
+  ]
+}
