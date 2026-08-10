@@ -88,6 +88,6 @@ Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md
 ## Three weakest cells (current triage order)
 
 1. ~~Use of DataHub / Stage One~~ **RESOLVED:** official MCP Server runs inside the product (discovery transport) + Skills plugin in dev workflow.
-2. **Submission Quality:** video still unrecorded (script ready in `docs/DEMO_SCRIPT.md`); screenshots pending the demo drill. README and `examples/` are done.
+2. **Submission Quality:** README, `examples/`, seven real UI/DataHub screenshots (`docs/screenshots/`) and `docs/ACCEPTANCE.md` are done. Remaining: record the demo video from the timed script in `docs/DEMO_SCRIPT.md`.
 3. ~~Technical Execution run evidence~~ **RESOLVED:** eval evidence committed (`evals/results/`, incl. full per-run artifacts): positive **11/11** checks (run_0007), control NO_INCIDENT (no false positive), bad-repair rejected by immutability invariants, DataHub-ablation measured honestly (see below). 14 gate unit tests in `tests/`. Note: scenarios run sequentially and results span runs 0001–0007 — the "battery" is a composite, not one green button.
 4. **Remaining:** demo on self-authored synthetic pipeline only; no live PR artifact; single-digit N on consistency.

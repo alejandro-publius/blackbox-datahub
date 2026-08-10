@@ -103,7 +103,7 @@ Implemented in `backend/blackbox/repair.py`, orchestrated by `agent/tools.py::t_
 2. **Real diff:** `difflib.unified_diff` computes the patch from actual old/new file contents — the diff shown in the UI is always the diff that ran.
 3. **Apply:** file written in place, original backed up (`.sql.orig`).
 4. **Verify (`verify_repair`):** rebuild the entire warehouse (`pipeline/run.py`), run the **full 32-test invariant suite**, recompute the KPI. Success requires **all tests green AND anomaly ratio back in [0.8, 1.3]**. Failure returns the failing tests to the model to iterate; an abandoned patch is reverted.
-5. **Git artifact:** the verified fix is committed on branch `blackbox/fix-<incident-id>` via a **temporary git worktree** so the main working tree is never disturbed (`make_git_artifact`). `try_create_pr` can push and open a PR via `gh` (helper exists; not wired into the automated flow — pending).
+5. **Git artifact:** the verified fix is committed on branch `blackbox/fix-<incident-id>` via a **temporary git worktree** so the main working tree is never disturbed (`make_git_artifact`). `try_create_pr` can push and open a PR via `gh`, but is deliberately not called during the demo — the run produces a local branch + commit and never touches a remote.
 6. **Writeback:** the DataHub incident is resolved with the remediation record (section 6).
 
 The repair prompt discipline lives in `agent/prompts.py`: fix at the right layer (staging boundary), targeted condition, no deleting/hiding data, "restoring the headline number by breaking something else is failure".
@@ -123,7 +123,7 @@ DataHub OSS (quickstart, v1.7.0) is the agent's map of the pipeline and its dura
 | 7 | **Incident writeback (write)** | `raiseIncident` creates a native OSS incident entity (OPERATIONAL / CRITICAL) on the root-cause + affected asset urns; `updateIncidentStatus` marks it RESOLVED/FIXED with tests, KPI ratio, and fix branch in the message. | `datahub/writeback.py::raise_incident`, `resolve_incident` |
 | 8 | **Docs writeback (write)** | `updateDescription` appends an "Incident history" remediation note to the root-cause dataset's docs — institutional memory that outlives the run. | `writeback.py::_append_incident_note` |
 | 9 | **Tag writeback (write)** | Creates and applies a `blackbox-remediated` tag via `addTags`. | `writeback.py::_tag_remediated` |
-| 10 | **Ablation flag** | `BLACKBOX_DISABLE_DATAHUB=true` makes the three DataHub tools return errors, to measure how load-bearing DataHub context is (eval runs pending — `evals/results/` is currently empty). | `config.py`, `agent/tools.py::_datahub_disabled` |
+| 10 | **Ablation flag** | `BLACKBOX_DISABLE_DATAHUB=true` makes the DataHub tools *and* writeback return errors, measuring what DataHub context contributes. Run and committed — see `evals/results/run_0007.json` and the honest finding in §9. | `config.py`, `agent/tools.py::_datahub_disabled`, `datahub/writeback.py` |
 
 The demo-reset endpoint (`POST /api/demo/reset`) also re-syncs DataHub metadata (idempotent upserts) so reverted transform SQL is reflected in the graph.
 
@@ -141,10 +141,25 @@ The demo-reset endpoint (`POST /api/demo/reset`) also re-syncs DataHub metadata 
 
 **Frontend** (`frontend/`, Next.js 16 + React 19 + Tailwind 4): a dark command center. `TopBar` (stage pill, Reset Demo), `KpiStrip`, `LineagePanel` (React Flow graph with node statuses `healthy → suspicious → root_cause → repaired`), `RightPanel` (Timeline / Hypotheses / Evidence tabs), `IncidentDrawer` surfacing the `RootCauseCard` (with the **Repair & Verify** button) and the `ResolutionCard` (diff viewer, post-repair tests, before/after KPI, writeback status). Type contract in `frontend/src/lib/types.ts` mirrors `models.py` exactly. A `?preview=1|resolved` mode renders placeholder fixtures for UI development only, always watermarked "PREVIEW DATA".
 
-Note: the UI does not yet include an incident-report form — incidents are filed via `POST /api/incidents` (pending).
+Incidents are filed from the UI's **Investigate Incident** dialog (`IncidentDialog.tsx`), which posts to `POST /api/incidents`; the same endpoint is available directly for scripted runs.
 
-## 8. Pending
+## 8. Known limitations
 
-- Eval runs (including the `BLACKBOX_DISABLE_DATAHUB` ablation) — `evals/results/` is empty.
-- Demo video; top-level README (written separately).
-- UI incident-report form; PR creation wiring (`repair.try_create_pr` exists but is not called by the agent flow); `make demo-run` target.
+Stated plainly rather than hidden — the full list with evidence is in [`ACCEPTANCE.md`](ACCEPTANCE.md).
+
+- **PR creation is not wired into the automated flow.** `repair.try_create_pr` exists and works, but the demo stops at a real local branch + commit; nothing pushes to a remote during a run.
+- **Repairs are single-file**, scoped to `pipeline/transforms/*.sql` by `repair._resolve_transform`.
+- **One incident archetype.** Every component is exercised against the seeded unit-semantics failure; a second archetype (timezone shift, duplicate rows) would reuse the same plumbing but is not implemented.
+- **Consistency is measured over a handful of runs**, not a large N.
+- **The fixture is self-authored**, so incident realism is illustrative; the machinery is the contribution.
+
+## 9. The DataHub ablation, honestly
+
+`BLACKBOX_DISABLE_DATAHUB=true` disables the DataHub read tools and the writeback, and relaxes the confirm gate's DataHub-citation requirement (otherwise the test would be circular — the gate *requires* DataHub evidence, so failure would be wiring, not information value).
+
+The measured result: on this 5-transform fixture the ablated agent **can still reach a correct diagnosis** by reading pipeline source files directly. We report that rather than claiming helplessness. What it loses is what matters at real scale:
+
+- the **topology map** — it substitutes reading every transform file, which does not survive a warehouse with thousands of models;
+- the **documented contract** (`amount` is major currency units), which is what converts "these numbers look strange" into a provable contract violation;
+- **zero DataHub-grounded evidence citations**, so the audit trail a reviewer would accept is gone;
+- the ability to **record the incident** — no institutional memory survives the run.
