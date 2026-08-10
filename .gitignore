@@ -29,6 +29,8 @@ npm-debug.log*
 data/warehouse/*.duckdb
 data/warehouse/*.duckdb.wal
 data/generated/
+# Incident records are ephemeral run-state (curated copies live in examples/)
+data/incidents/
 
 # OS / editor
 .DS_Store
