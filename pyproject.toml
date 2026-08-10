@@ -27,6 +27,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "playwright>=1.62.0",
     "ruff>=0.6",
 ]
 

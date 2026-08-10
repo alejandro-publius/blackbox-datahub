@@ -104,7 +104,6 @@ export const PLACEHOLDER_GRAPH: LineageGraph = {
       target: URN("staging.stg_fx_rates"),
       columns: [{ upstream: "usd_rate", downstream: "usd_rate" }],
     },
-    { source: URN("staging.stg_orders"), target: URN("staging.stg_fx_rates") },
     {
       source: URN("staging.stg_orders"),
       target: URN("marts.fct_revenue"),
