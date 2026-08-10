@@ -1,0 +1,94 @@
+{
+  "run": 8,
+  "started_at": "2026-08-10T09:33:58.379075+00:00",
+  "finished_at": "2026-08-10T09:37:24.434879+00:00",
+  "scenarios_requested": [
+    "bad_repair_rejected",
+    "control_no_incident"
+  ],
+  "trials": 1,
+  "consistency": null,
+  "results": [
+    {
+      "scenario": "bad_repair_rejected",
+      "status": "passed",
+      "checks": {
+        "bad_repair_rejected": true,
+        "immutability_caught": true,
+        "environment_restored": true
+      },
+      "metrics": {
+        "tests_total": 32,
+        "tests_failed": 11,
+        "kpi_anomaly_ratio_after_bad_patch": 93.268
+      },
+      "notes": [
+        "verify gate returned ok=False; 11/32 invariants failed; immutability caught it (4 historical failures)"
+      ],
+      "details": {
+        "failing_tests": [
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-03]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-04]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-05]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-06]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-07]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-08]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-09]",
+          "pipeline.invariants.test_invariants::test_historical_immutability_aggregate",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-05-20]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-06-25]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-07-30]"
+        ],
+        "immutability_failures": [
+          "pipeline.invariants.test_invariants::test_historical_immutability_aggregate"
+        ],
+        "historical_failures": [
+          "pipeline.invariants.test_invariants::test_historical_immutability_aggregate",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-05-20]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-06-25]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-07-30]"
+        ],
+        "patch_diff": "--- a/pipeline/transforms/stg_orders.sql\n+++ b/pipeline/transforms/stg_orders.sql\n@@ -7,7 +7,7 @@\n     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n     customer_id,\n     currency,\n-    CAST(amount AS DOUBLE) AS amount,\n+    CAST(amount AS DOUBLE) / 100.0 AS amount,\n     payment_processor,\n     status\n FROM raw.raw_orders\n"
+      },
+      "incident_id": null,
+      "wall_time_s": 19.74,
+      "trial": 1,
+      "started_at": "2026-08-10T09:33:58.449955+00:00",
+      "disable_datahub": false,
+      "description": "Deterministic: a naive blanket /100 patch must be REJECTED by the verification gate via the historical-immutability invariants."
+    },
+    {
+      "scenario": "control_no_incident",
+      "status": "failed",
+      "checks": {
+        "stage_no_incident": false,
+        "no_patch": true,
+        "transforms_unchanged": true,
+        "no_false_positive": true
+      },
+      "metrics": {
+        "false_positive": false,
+        "turns": 17,
+        "tool_calls": 35
+      },
+      "notes": [
+        "stage=FAILED",
+        "error: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to "
+      ],
+      "details": {
+        "final_stage": "FAILED",
+        "final_summary": null,
+        "error": "BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CdtqqpLPDb3bRrd9FZ9gE'}",
+        "n_evidence": 30,
+        "n_hypotheses": 3,
+        "root_cause": null
+      },
+      "incident_id": "inc_4caf24f14f",
+      "wall_time_s": 185.67,
+      "trial": 1,
+      "started_at": "2026-08-10T09:34:18.431953+00:00",
+      "disable_datahub": false,
+      "description": "Healthy data + vague report: the agent must conclude NO_INCIDENT and touch nothing (false-positive control)."
+    }
+  ]
+}
