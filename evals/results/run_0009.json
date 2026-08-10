@@ -1,0 +1,44 @@
+{
+  "run": 9,
+  "started_at": "2026-08-10T14:59:39.876638+00:00",
+  "finished_at": "2026-08-10T15:28:03.830500+00:00",
+  "scenarios_requested": [
+    "control_no_incident"
+  ],
+  "trials": 1,
+  "consistency": null,
+  "results": [
+    {
+      "scenario": "control_no_incident",
+      "status": "passed",
+      "checks": {
+        "stage_no_incident": true,
+        "no_patch": true,
+        "transforms_unchanged": true,
+        "no_false_positive": true
+      },
+      "metrics": {
+        "false_positive": false,
+        "turns": 14,
+        "tool_calls": 34
+      },
+      "notes": [
+        "stage=NO_INCIDENT"
+      ],
+      "details": {
+        "final_stage": "NO_INCIDENT",
+        "final_summary": "The reported \"revenue feels slightly off\" is a day-of-week composition artifact, not a data defect.\n\n1) NO DIVERGENCE FROM BASELINE. All 14 most-recent days show revenue_ratio = 1.000 and aov_ratio = 1.000 against the committed healthy baseline, with order counts matching exactly [ev_1267f1dfd7]. The full invariant suite passes 32/32 with zero failures [ev_efacfdb817].\n\n2) THE HEADLINE DIP IS NORMAL VARIANCE. The KPI's anomaly_ratio of 0.9327 on 2026-08-09 is not an outlier: across 89 days of history the ratio of daily revenue to its own trailing-28d median has sd = 0.129, range 0.733-1.298, and 27 of 89 days (30%) were WORSE than 0.9327 [ev_ad31cfcbe0]. Today sits ~0.5 sd below the mean.\n\n3) THE APPARENT SOFTNESS IS CALENDAR, NOT DATA. The last three days are Fri/Sat/Sun. Against day-of-week averages: Friday 08-07 = 26,557 vs Friday pre-average 31,619 (sd 3,298, i.e. -1.5 sd, within noise), but Saturday 08-08 = 27,384 vs Saturday average 25,596 and Sunday 08-09 = 27,373 vs Sunday average 25,195 \u2014 two of the three days are ABOVE their day-of-week norm [ev_8439cc3fd6]. The KPI's trailing-median reference window (days -35..-8) blends all seven weekdays, so any weekend-heavy tail reads low by construction [ev_b3304e7436].\n\n4) THE ONE REAL CHANGE IS A DOCUMENTED BENIGN MIGRATION. On 2026-08-07 the payment mix cut over entirely from legacy_pos/shopgate to cloudpay_v2 [ev_1f844465ec], exactly as the DataHub contract predicts: raw_orders.payment_processor documents cloudpay_v2 as a \"new provider being rolled out in early August 2026 per the payments-platform runbook\" [ev_4e85670b27]. The cohort is contract-clean: 1062 rows / 1062 distinct order_ids (no duplicates), 0 amounts violating the v1.3 two-decimal major-units rule, 0 non-positive amounts, 0 invalid ISO-4217 codes, 0 null customers, and mean amount 79.59 vs legacy_pos 79.99 / shopgate 80.93 \u2014 ruling out a minor-units (cents) error, which would have shown a 100x shift [ev_72c23b57bd]. Raw-to-staging counts reconcile exactly (334/349/327 completed = staged) so no rows are lost [ev_13ee4e01ce, ev_4b31e5fe55]. Revenue per order is flat across the cutover: 80.56 post vs 81.14 prior-30d vs 80.46 earlier (-0.7%, noise) [ev_3ab62e908f]. Per the rule that a benign migration which does not distort metrics is not an incident, this is a clean cutover.\n\nNO REPAIR PROPOSED: there is no defect to fix, and changing the pipeline to force the KPI upward would fabricate an incident and corrupt correct data.\n\nFOLLOW-UP (hygiene ticket, NOT an incident): raw_fx_rates stops delivering at 2026-08-05, so 08-06..08-09 run on forward-filled rates [ev_0c124d984f, ev_d4a460f7c8]. This is the documented intended behavior of stg_fx_rates, and its magnitude is negligible \u2014 non-USD is only 3.3-7.7% of daily revenue [ev_1089df715d] and FX drift averages 0.08-0.15%/day (max 0.31%) [ev_3d444d7f8f], bounding the error near 0.04% of total revenue (~$10/day), roughly 150x too small to explain the reported dip. I recommend a freshness alert on raw_fx_rates so the forward-fill cannot silently mask a longer outage, plus a day-of-week-aware or 7-day-lagged reference in exec_revenue_metric to stop this false positive from recurring.",
+        "error": null,
+        "n_evidence": 26,
+        "n_hypotheses": 3,
+        "root_cause": null
+      },
+      "incident_id": "inc_d12741d077",
+      "wall_time_s": 901.92,
+      "trial": 1,
+      "started_at": "2026-08-10T14:59:39.938022+00:00",
+      "disable_datahub": false,
+      "description": "Healthy data + vague report: the agent must conclude NO_INCIDENT and touch nothing (false-positive control)."
+    }
+  ]
+}
