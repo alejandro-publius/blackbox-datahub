@@ -58,7 +58,7 @@ export function ResolutionCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 24 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="relative rounded-xl border border-emerald-400/40 bg-zinc-900 p-5"
+      className="relative rounded-xl border-2 border-emerald-400/50 bg-zinc-900 p-5 shadow-[0_0_50px_-14px_rgba(16,217,154,0.3)]"
     >
       {onDismiss && (
         <button
@@ -82,10 +82,10 @@ export function ResolutionCard({
         {testsAfter && (
           <span
             className={cn(
-              "rounded-full border px-3 py-1 font-mono text-sm font-bold tabular-nums",
+              "rounded-full border px-4 py-1.5 font-mono text-base font-bold tracking-tight tabular-nums",
               allPassed
-                ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-400"
-                : "border-amber-400/40 bg-amber-400/10 text-amber-400",
+                ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-400"
+                : "border-amber-400/50 bg-amber-400/10 text-amber-400",
             )}
           >
             {testsAfter.passed}/{testsAfter.total} TESTS PASSED
@@ -99,13 +99,13 @@ export function ResolutionCard({
             <div className="text-[10px] uppercase tracking-wider text-zinc-500">
               Revenue · before
             </div>
-            <div className="font-mono text-xl font-semibold tabular-nums text-red-400 line-through decoration-red-400/70 decoration-2">
+            <div className="font-mono text-4xl font-bold tracking-tight tabular-nums text-red-400 line-through decoration-red-400/60 decoration-[3px]">
               {metricBefore
                 ? formatUsd(metricBefore.revenue, metricBefore.revenue < 10_000)
                 : "—"}
             </div>
             {metricBefore && (
-              <div className="font-mono text-[10px] tabular-nums text-red-400/80">
+              <div className="font-mono text-[11px] tabular-nums text-red-400/80">
                 {ratioLabel(metricBefore)}
               </div>
             )}
@@ -115,13 +115,13 @@ export function ResolutionCard({
             <div className="text-[10px] uppercase tracking-wider text-zinc-500">
               Revenue · after
             </div>
-            <div className="font-mono text-xl font-semibold tabular-nums text-emerald-400">
+            <div className="font-mono text-4xl font-bold tracking-tight tabular-nums text-emerald-400">
               {metricAfter
                 ? formatUsd(metricAfter.revenue, metricAfter.revenue < 10_000)
                 : "—"}
             </div>
             {metricAfter && (
-              <div className="font-mono text-[10px] tabular-nums text-emerald-400/80">
+              <div className="font-mono text-[11px] tabular-nums text-emerald-400/80">
                 {ratioLabel(metricAfter)}
               </div>
             )}

@@ -179,6 +179,7 @@ DataHub, the agent loop, the evidence gates, and the writeback are unchanged by 
 | **Deep architecture** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | **Self-assessment vs. rubric** | [`docs/JUDGE_SCORECARD.md`](docs/JUDGE_SCORECARD.md) — weaknesses included |
 | **Demo walkthrough** | [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) |
+| **Design source** | [Figma — Incident Command Center](https://www.figma.com/design/8wzbrWC5OTte3iUgh66XOp) (4 product states + tokens, authored via Figma MCP) |
 
 ## Repo map
 

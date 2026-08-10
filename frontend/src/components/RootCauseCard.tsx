@@ -41,7 +41,7 @@ export function RootCauseCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 24 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="pulse-root-cause relative rounded-xl border border-red-500/50 bg-zinc-900 p-5"
+      className="pulse-root-cause relative rounded-xl border-2 border-red-500/55 bg-zinc-900 p-5 shadow-[0_0_60px_-12px_rgba(244,63,94,0.35)]"
     >
       {onDismiss && (
         <button
@@ -62,17 +62,23 @@ export function RootCauseCard({
               ROOT CAUSE CONFIRMED
             </span>
           </div>
-          <h3 className="mt-2 text-xl font-semibold text-zinc-100">
-            {rootCause.summary}
-          </h3>
+          {/* The blamed field is the single thing a reader must leave with —
+              give it display weight, with the urn as fine print beneath. */}
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="font-mono text-3xl leading-none font-bold tracking-tight text-zinc-50">
+              {shortUrn(rootCause.asset_urn)}
+              <span className="text-red-400">.{rootCause.field}</span>
+            </span>
+          </div>
           <p
-            className="mt-1 truncate font-mono text-xs text-red-400"
+            className="mt-1.5 truncate font-mono text-[11px] text-zinc-500"
             title={rootCause.asset_urn}
           >
-            {shortUrn(rootCause.asset_urn)}
-            <span className="text-zinc-500"> · field </span>
-            {rootCause.field}
+            {rootCause.asset_urn}
           </p>
+          <h3 className="mt-3 max-w-3xl text-base leading-relaxed font-semibold text-zinc-100">
+            {rootCause.summary}
+          </h3>
           {/* The agent's full derivation runs long; cap it so the headline,
               impact stats and CTA stay above the fold (scroll for the rest). */}
           <p className="mt-2 max-h-44 max-w-2xl overflow-auto pr-2 text-sm leading-relaxed text-zinc-400">
