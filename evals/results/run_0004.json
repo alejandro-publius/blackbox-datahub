@@ -1,0 +1,86 @@
+{
+  "run": 4,
+  "started_at": "2026-08-10T05:48:13.336731+00:00",
+  "finished_at": "2026-08-10T05:50:22.540976+00:00",
+  "scenarios_requested": [
+    "positive_incident"
+  ],
+  "trials": 1,
+  "consistency": null,
+  "results": [
+    {
+      "scenario": "positive_incident",
+      "status": "passed",
+      "checks": {
+        "terminal_ok": true,
+        "root_cause_correct": true,
+        "semantic_identified": true,
+        "distractor_avoided": true,
+        "repair_correct_file": true,
+        "repair_verified": true,
+        "repair_targeted": true,
+        "evidence_coverage": true,
+        "writeback_done": true
+      },
+      "metrics": {
+        "blamed_most_upstream": true,
+        "distractor_examined": true,
+        "evidence_by_source": {
+          "datahub": 6,
+          "warehouse": 7,
+          "pipeline": 3,
+          "git": 2
+        },
+        "turns": 13,
+        "tool_calls": 22
+      },
+      "notes": [
+        "stage=WRITEBACK_COMPLETE; turns=13; tool_calls=22"
+      ],
+      "details": {
+        "final_stage": "WRITEBACK_COMPLETE",
+        "final_summary": "## Incident: 100x revenue spike on executive dashboard \u2014 NOT real. Root cause found, repaired, verified.\n\n**Verdict:** genuine data incident (unit-semantics defect), now resolved. Revenue was never real.\n\n### Symptom\n`marts.exec_revenue_metric.revenue` jumped from ~$27k/day to ~$2.74M/day (anomaly_ratio 93.3x) [ev_c957e5b969]. Onset was sharp and exact: 2026-08-06 ratio 1.0 \u2192 2026-08-07 ratio **100.0**, holding at 100.0 on 08-08 and 08-09 [ev_86836d9b65].\n\nThe giveaway: **order_count matched the committed baseline exactly** on every affected day (334/334, 349/349, 327/327) while median AOV was exactly 100x baseline ($6,483.50 vs $64.84) [ev_86836d9b65]. Same orders, same customers, 100x the money \u2014 that is arithmetic, not commerce.\n\n### Lineage (DataHub, UPSTREAM)\n`exec_revenue_metric` \u2190 `marts.fct_revenue` \u2190 {`staging.stg_orders`, `staging.stg_fx_rates`}; `stg_orders` \u2190 `raw.raw_orders`, with column-level edges `raw_orders.amount` \u2192 `stg_orders.amount` \u2192 `fct_revenue.revenue_usd` \u2192 `exec_revenue_metric.revenue` [ev_c16d6ce4ca]. Two candidate branches: orders and FX.\n\n### Evidence\n- **FX branch eliminated:** `usd_rate` is identical across the onset (EUR 1.070478, GBP 1.270418, CAD 0.718958, USD 1.0 on 08-05\u219208-09) [ev_78f1e93383].\n- **Cohort isolated:** on 2026-08-07 the processor mix cuts over completely \u2014 `legacy_pos`/`shopgate` stop on 08-06, `cloudpay_v2` becomes 100% of orders (1,010 rows) [ev_a0cfe5c5b9][ev_e997bf3b56].\n- **Decisive fingerprint:** **all 1,010** cloudpay_v2 amounts are exactly integer-valued (334/334, 349/349, 327/327), versus ~1% for legacy processors (22,080/22,347 and 9,325/9,420 non-integer) [ev_e4865b6b04][ev_e997bf3b56]. Integer-only values at 100x scale = minor units (cents). Its min of 562 = $5.62 matches the $5.00 price floor of the other processors.\n- **Contract violation:** `raw_orders.amount` is documented as \"MAJOR currency units as a decimal (e.g. 49.99 = $49.99). Contract v1.3\", and `payment_processor` notes \"cloudpay_v2 (provider migration began **2026-08-07**)\" \u2014 the defect date equals the documented migration date [ev_c3a5049a70].\n\n### Root cause\n`raw.raw_orders.amount` \u2014 the **cloudpay_v2** provider migration began emitting amounts in **cents** instead of dollars on 2026-08-07, violating contract v1.3. `stg_orders.sql` passed the value through with a bare `CAST(amount AS DOUBLE)` and no unit normalization [ev_66dc99bbfc], and `fct_revenue.sql` multiplied it straight by `usd_rate` [ev_af1682b298], so the 100x error reached the executive KPI untouched.\n\n*Note:* the `stg_orders` DataHub description carried an \"incident history\" claiming this exact issue was already remediated. The transform source contained no normalization and the KPI was live-anomalous, so that documentation was stale \u2014 I treated it as a claim to verify, not as evidence.\n\n### Repair\nPatched `pipeline/transforms/stg_orders.sql`: a provider-scoped `CASE` converting only `cloudpay_v2` amounts to major units (`/100.0`). Minimal and honest \u2014 no rows filtered, no history rewritten, all 1,010 orders retained, legacy processors untouched, and the metric layer not manipulated to mask the number. Scoped by processor rather than date so future cloudpay_v2 batches stay correct.\n\n### Verification\n- **32/32 invariants passed**, 0 failures.\n- KPI anomaly ratio: 93.27x \u2192 **0.93x** (target ~1.0).\n- Post-rebuild, all three affected days reconcile to baseline exactly: 08-07 $26,557.18, 08-08 $27,383.61, 08-09 $27,373.23 \u2014 revenue_ratio and aov_ratio **1.0**, with order counts unchanged [ev_6d414ad32c].\n- Shipped on branch `blackbox/fix-inc_631dde6595` @ `838c73f`; DataHub incident marked RESOLVED.\n\n### Follow-up for humans\nEscalate to the payments-platform team (owner: Jordan Lee) \u2014 cloudpay_v2 should be fixed at source to emit major units; the staging clause is a compensating control and should be removed once upstream complies. Recommend a persistent invariant asserting per-processor AOV stays within a sane band, which would have caught this on day one.",
+        "error": null,
+        "n_evidence": 18,
+        "n_hypotheses": 2,
+        "root_cause": {
+          "summary": "The cloudpay_v2 processor migration on 2026-08-07 began reporting raw_orders.amount in cents while the contract mandates major currency units, and stg_orders passed it through unnormalized \u2014 inflating executive revenue exactly 100x.",
+          "asset_urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
+          "field": "amount",
+          "detail": "Symptom: marts.exec_revenue_metric.revenue jumped from ~$27k/day to ~$2.74M/day, anomaly_ratio 93.3x. Onset is sharp and dated: 2026-08-06 revenue_ratio 1.0, 2026-08-07 revenue_ratio 100.0, and 08-08/08-09 also exactly 100.0 [ev_86836d9b65].\n\nThe symptom is pure unit scale, not volume: order_count matches the committed baseline exactly on every affected day (334/334, 349/349, 327/327) while aov_median_usd is 100x baseline (6483.5 vs 64.84) [ev_86836d9b65]. A real 100x revenue event with identical order counts and identical FX is impossible.\n\nLineage (DataHub, UPSTREAM from exec_revenue_metric): exec_revenue_metric <- marts.fct_revenue <- {staging.stg_orders, staging.stg_fx_rates}; stg_orders <- raw.raw_orders, with column-level edges raw_orders.amount -> stg_orders.amount -> fct_revenue.revenue_usd/aov_usd/aov_median_usd -> exec_revenue_metric.revenue [ev_c16d6ce4ca].\n\nThe FX branch is eliminated: usd_rate is byte-identical across the onset (EUR 1.070478, GBP 1.270418, CAD 0.718958, USD 1.0 on 08-05 through 08-09) [ev_78f1e93383].\n\nCause isolated to the orders branch by cohort: on 2026-08-07 the payment_processor mix cuts over completely \u2014 legacy_pos and shopgate stop at 2026-08-06 and cloudpay_v2 becomes 100% of orders from 2026-08-07 (1010 rows total) [ev_a0cfe5c5b9][ev_e997bf3b56]. cloudpay_v2 amounts have median 6076 and min 562 versus legacy median ~62 and min 5.00 \u2014 a 100x shift. The decisive fingerprint: 334/334, 349/349 and 327/327 cloudpay_v2 amounts are exactly integer-valued, and 0 of its 1010 rows are non-integer, whereas the legacy processors are ~99% non-integer (22080/22347 and 9325/9420) [ev_e4865b6b04][ev_e997bf3b56]. Integer-only amounts with a 100x scale is the signature of minor units (cents); min 562 = $5.62 aligns with the $5.00 price floor of the other processors.\n\nContract violation: raw_orders.amount is documented as \"Order amount in MAJOR currency units as a decimal (e.g. 49.99 = $49.99). Contract v1.3\", and payment_processor documents \"cloudpay_v2 (provider migration began 2026-08-07 per payments-platform runbook)\" \u2014 the defect date matches the documented migration date exactly [ev_c3a5049a70]. The defect therefore ORIGINATES in raw.raw_orders.amount, upstream of any transform.\n\nPropagation: pipeline/transforms/stg_orders.sql selects CAST(amount AS DOUBLE) with no unit normalization [ev_66dc99bbfc], and fct_revenue.sql multiplies straight through by usd_rate [ev_af1682b298], so the 100x error reaches the executive KPI untouched. Note: the stg_orders DataHub description claims a prior BlackBox remediation of this exact issue, but the transform source contains no normalization and the KPI is live-anomalous \u2014 that documentation is stale and was not treated as evidence.",
+          "evidence_ids": [
+            "ev_c16d6ce4ca",
+            "ev_c3a5049a70",
+            "ev_86836d9b65",
+            "ev_a0cfe5c5b9",
+            "ev_e4865b6b04",
+            "ev_e997bf3b56",
+            "ev_78f1e93383",
+            "ev_66dc99bbfc",
+            "ev_af1682b298"
+          ]
+        },
+        "patch_diff": "--- a/pipeline/transforms/stg_orders.sql\n+++ b/pipeline/transforms/stg_orders.sql\n@@ -1,5 +1,16 @@\n -- stg_orders: cleaned order stream.\n -- Excludes cancelled and refunded orders from the revenue path.\n+--\n+-- UNIT NORMALIZATION (incident: 100x revenue spike from 2026-08-07)\n+-- raw_orders.amount is contracted (payments-platform v1.3) to be in MAJOR\n+-- currency units (e.g. 49.99 = $49.99). The cloudpay_v2 provider, introduced\n+-- by the migration that began 2026-08-07, violates that contract and emits\n+-- MINOR units (cents): 100% of its rows are integer-valued and its median\n+-- amount is ~100x that of legacy_pos/shopgate.\n+-- We convert cloudpay_v2 amounts back to major units here, at the staging\n+-- boundary, so that every downstream consumer of stg_orders.amount sees a\n+-- single, contract-compliant unit. No rows are dropped or hidden.\n+-- Remove this clause once the provider is fixed upstream.\n CREATE OR REPLACE TABLE staging.stg_orders AS\n SELECT\n     order_id,\n@@ -7,7 +18,11 @@\n     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n     customer_id,\n     currency,\n-    CAST(amount AS DOUBLE) AS amount,\n+    CASE\n+        WHEN payment_processor = 'cloudpay_v2'\n+            THEN ROUND(CAST(amount AS DOUBLE) / 100.0, 2)\n+        ELSE CAST(amount AS DOUBLE)\n+    END AS amount,\n     payment_processor,\n     status\n FROM raw.raw_orders\n",
+        "patch_reasoning": "Fix at the staging boundary, which is where bad upstream semantics should be normalized (stg_orders is documented as \"the canonical input for all revenue reporting\", and its amount field is contracted as \"major currency units\"). The repair is targeted to the offending provider only: cloudpay_v2 reports in minor units (cents), proven by 1010/1010 integer-valued amounts and a 100x median shift vs legacy_pos/shopgate [ev_e4865b6b04][ev_e997bf3b56]. Dividing only cloudpay_v2 rows by 100 restores contract compliance without touching legacy_pos/shopgate history, without filtering or deleting any rows (all 1010 orders are retained), and without rewriting the metric layer to mask the number. Conditioning on payment_processor rather than a date makes it forward-safe for future cloudpay_v2 batches; unit semantics are a property of the provider, not the calendar.",
+        "tests_after": {
+          "total": 32,
+          "passed": 32,
+          "failed": 0,
+          "failures": []
+        },
+        "metric_after_anomaly_ratio": 0.9327,
+        "writeback": {
+          "incident_urn": "urn:li:incident:1894a327-9bab-4343-9ee6-87b4ebe5ce9d",
+          "status": "complete",
+          "detail": "Incident RESOLVED (FIXED) in DataHub \u2014 Repair verified by BlackBox. | Patch: pipeline/transforms/stg_orders.sql | Tests: 32/32 passed | KPI restored: anomaly ratio 0.93x (target ~1.0x) | Fix branch: blackbox/fix-inc_631dde6595 @ 838c73f31f. remediation note appended to dataset docs; tagged blackbox-remediated"
+        }
+      },
+      "incident_id": "inc_631dde6595",
+      "wall_time_s": 128.71,
+      "trial": 1,
+      "started_at": "2026-08-10T05:48:13.406923+00:00",
+      "disable_datahub": false,
+      "description": "Full autonomous loop on the cents-vs-dollars incident: correct root cause, targeted verified repair, DataHub writeback."
+    }
+  ]
+}

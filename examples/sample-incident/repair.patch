@@ -1,0 +1,32 @@
+--- a/pipeline/transforms/stg_orders.sql
++++ b/pipeline/transforms/stg_orders.sql
+@@ -1,5 +1,16 @@
+ -- stg_orders: cleaned order stream.
+ -- Excludes cancelled and refunded orders from the revenue path.
++--
++-- UNIT NORMALIZATION (incident: 100x revenue spike from 2026-08-07)
++-- raw_orders.amount is contracted (payments-platform v1.3) to be in MAJOR
++-- currency units (e.g. 49.99 = $49.99). The cloudpay_v2 provider, introduced
++-- by the migration that began 2026-08-07, violates that contract and emits
++-- MINOR units (cents): 100% of its rows are integer-valued and its median
++-- amount is ~100x that of legacy_pos/shopgate.
++-- We convert cloudpay_v2 amounts back to major units here, at the staging
++-- boundary, so that every downstream consumer of stg_orders.amount sees a
++-- single, contract-compliant unit. No rows are dropped or hidden.
++-- Remove this clause once the provider is fixed upstream.
+ CREATE OR REPLACE TABLE staging.stg_orders AS
+ SELECT
+     order_id,
+@@ -7,7 +18,11 @@
+     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,
+     customer_id,
+     currency,
+-    CAST(amount AS DOUBLE) AS amount,
++    CASE
++        WHEN payment_processor = 'cloudpay_v2'
++            THEN ROUND(CAST(amount AS DOUBLE) / 100.0, 2)
++        ELSE CAST(amount AS DOUBLE)
++    END AS amount,
+     payment_processor,
+     status
+ FROM raw.raw_orders
