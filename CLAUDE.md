@@ -44,6 +44,7 @@ datahub docker quickstart                                       # DataHub OSS (U
 - `DATAHUB_GMS_URL` (default `http://localhost:8080`), `DATAHUB_GMS_TOKEN` (optional)
 - `BLACKBOX_DISABLE_DATAHUB=true` — ablation: DataHub tools return errors (for evals)
 - `BLACKBOX_CREATE_PR=true` — after a VERIFIED repair, push the `blackbox/fix-*` branch and open a real PR via `gh`. **Default false**; the demo and evals must never push to a remote. Requires `gh auth`. Caveat: `demo/reset` only deletes *local* fix branches, so an opened PR/remote branch needs manual cleanup.
+- `BLACKBOX_TRACING=true` + `PHOENIX_COLLECTOR_ENDPOINT` — optional OTel/Phoenix tracing (`uv sync --extra tracing`, `uv run phoenix serve`). **Default false**: with it unset no tracing package is imported and every hook is a no-op. Never part of correctness.
 - `BLACKBOX_API_PORT` (default 8400); frontend: `NEXT_PUBLIC_BLACKBOX_API_URL`
 - Never commit `.env`.
 
