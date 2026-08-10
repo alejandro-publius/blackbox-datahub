@@ -4,14 +4,14 @@
  -- stg_orders: cleaned order stream.
  -- Excludes cancelled and refunded orders from the revenue path.
 +--
-+-- UNIT NORMALIZATION (incident 2026-08-07, cloudpay_v2 cutover):
-+-- The raw.raw_orders.amount contract (v1.3) requires MAJOR currency units as a
-+-- decimal (e.g. 49.99 = $49.99). The cloudpay_v2 provider, rolled out on
-+-- 2026-08-07, instead emits MINOR units (integer cents), which inflated all
-+-- downstream revenue/AOV by exactly 100x. We normalize that provider's cohort
-+-- back to major units here, at the ingestion-contract boundary. The rescale is
-+-- scoped strictly to payment_processor = 'cloudpay_v2'; legacy_pos and
-+-- shopgate feeds are already contract-compliant and pass through unchanged.
++-- UNIT NORMALIZATION (incident fix, onset 2026-08-07):
++-- raw.raw_orders.amount is contractually MAJOR currency units as a decimal
++-- (contract v1.3, e.g. 49.99 = $49.99). The cloudpay_v2 provider, rolled out
++-- in early August 2026, emits MINOR units (integer cents) instead, which is a
++-- semantic contract violation that still validates as DOUBLE. raw is an
++-- immutable vendor landing table, so staging is the documented normalization
++-- boundary: we rescale the cloudpay_v2 cohort by 1/100 and leave every other
++-- processor untouched. Remove this branch once the provider ships major units.
  CREATE OR REPLACE TABLE staging.stg_orders AS
  SELECT
      order_id,

@@ -144,6 +144,7 @@ const EVIDENCE_EARLY: IncidentState["evidence"] = [
       "2026-08-09 revenue_usd = 2,737,323.50 vs trailing-28d median 29,349.39 (ratio 93.27). "
       + "Days 2026-08-07..09 are all ~93-100× baseline.",
     source: "warehouse",
+    transport: "duckdb",
   },
   {
     id: "ev_2",
@@ -154,6 +155,7 @@ const EVIDENCE_EARLY: IncidentState["evidence"] = [
       "exec_revenue_metric ← fct_revenue ← {stg_orders, stg_fx_rates} ← {raw_orders, raw_fx_rates} "
       + "(column: revenue ← revenue_usd ← amount × usd_rate)",
     source: "datahub",
+    transport: "datahub-mcp-server",
   },
   {
     id: "ev_3",
@@ -164,6 +166,7 @@ const EVIDENCE_EARLY: IncidentState["evidence"] = [
       "SELECT order_day, count(*) FROM staging.stg_orders WHERE order_day >= '2026-08-07' GROUP BY 1;\n"
       + "-- 351 / 362 / 358 rows (baseline 350 ± 40) → no duplicate ingestion",
     source: "warehouse",
+    transport: "duckdb",
   },
   {
     id: "ev_4",
@@ -174,6 +177,7 @@ const EVIDENCE_EARLY: IncidentState["evidence"] = [
       "stg_fx_rates.usd_rate per currency unchanged within ±0.4% across 2026-08-01..09. "
       + "Feed stopped updating 2026-08-05 but forward-fill carries the last known rate.",
     source: "warehouse",
+    transport: "duckdb",
   },
 ];
 
@@ -189,6 +193,7 @@ const EVIDENCE_ROOT_CAUSE: IncidentState["evidence"] = [
       + "cloudpay_v2 mean 2026-08-06: 74.31 → 2026-08-07: 7,411.86 (×99.7). "
       + "All other processors unchanged; all orders route via cloudpay_v2 after the 2026-08-07 cutover.",
     source: "warehouse",
+    transport: "duckdb",
   },
   {
     id: "ev_6",
@@ -199,6 +204,7 @@ const EVIDENCE_ROOT_CAUSE: IncidentState["evidence"] = [
       'DataHub doc for raw.raw_orders (payments-platform contract v1.3): "`amount` is a decimal '
       + 'in major currency units". Observed cloudpay_v2 values are integers — contract violation.',
     source: "datahub",
+    transport: "datahub-mcp-server",
   },
   {
     id: "ev_7",
@@ -210,6 +216,7 @@ const EVIDENCE_ROOT_CAUSE: IncidentState["evidence"] = [
       + "  ON fx.rate_day=o.order_day AND fx.currency=o.currency WHERE o.order_day='2026-08-09';\n"
       + "-- 27,373.24 ≈ trailing median 29,349.39 (ratio 0.93) → amount is integer CENTS",
     source: "warehouse",
+    transport: "duckdb",
   },
 ];
 
@@ -387,6 +394,7 @@ export const PLACEHOLDER_INCIDENT_RESOLVED: IncidentState = {
       detail:
         "32/32 pipeline invariants passed after rebuild. exec_revenue_metric 2026-08-09: 27,373.24 (ratio 0.93 vs trailing median).",
       source: "pipeline",
+    transport: "pytest",
     },
     {
       id: "ev_10",
@@ -396,6 +404,7 @@ export const PLACEHOLDER_INCIDENT_RESOLVED: IncidentState = {
       detail:
         "pipeline/transforms/stg_orders.sql | 7 +++++--  (commit 9f3c2ab)",
       source: "git",
+    transport: "git",
     },
     {
       id: "ev_11",
@@ -405,6 +414,7 @@ export const PLACEHOLDER_INCIDENT_RESOLVED: IncidentState = {
       detail:
         "Incident resolved + root-cause annotation attached to raw.raw_orders.amount; owners notified.",
       source: "datahub",
+    transport: "datahub-mcp-server",
     },
   ],
   writeback: {

@@ -1,9 +1,9 @@
 {
-  "id": "inc_ee7f7471fb",
+  "id": "inc_686e61287f",
   "report_text": "Revenue just jumped roughly 100x on the executive dashboard. Is this real?",
   "stage": "WRITEBACK_COMPLETE",
-  "created_at": "2026-08-10T09:18:08.647822+00:00",
-  "updated_at": "2026-08-10T09:21:08.417185+00:00",
+  "created_at": "2026-08-10T15:28:43.632199+00:00",
+  "updated_at": "2026-08-10T15:32:02.733437+00:00",
   "nodes": [
     {
       "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
@@ -20,6 +20,13 @@
       "status": "healthy"
     },
     {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
+      "name": "staging.stg_fx_rates",
+      "platform": "duckdb",
+      "layer": "staging",
+      "status": "healthy"
+    },
+    {
       "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
       "name": "staging.stg_orders",
       "platform": "duckdb",
@@ -27,10 +34,10 @@
       "status": "healthy"
     },
     {
-      "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
-      "name": "staging.stg_fx_rates",
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
+      "name": "raw.raw_fx_rates",
       "platform": "duckdb",
-      "layer": "staging",
+      "layer": "source",
       "status": "investigating"
     },
     {
@@ -39,13 +46,6 @@
       "platform": "duckdb",
       "layer": "source",
       "status": "repaired"
-    },
-    {
-      "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
-      "name": "raw.raw_fx_rates",
-      "platform": "duckdb",
-      "layer": "source",
-      "status": "healthy"
     }
   ],
   "edges": [
@@ -68,6 +68,24 @@
         {
           "upstream": "revenue_usd",
           "downstream": "anomaly_ratio"
+        }
+      ]
+    },
+    {
+      "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
+      "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
+      "columns": [
+        {
+          "upstream": "usd_rate",
+          "downstream": "revenue_usd"
+        },
+        {
+          "upstream": "usd_rate",
+          "downstream": "aov_usd"
+        },
+        {
+          "upstream": "usd_rate",
+          "downstream": "aov_median_usd"
         }
       ]
     },
@@ -102,20 +120,20 @@
       ]
     },
     {
-      "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
-      "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
+      "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
+      "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
       "columns": [
         {
-          "upstream": "usd_rate",
-          "downstream": "revenue_usd"
+          "upstream": "rate_day",
+          "downstream": "rate_day"
+        },
+        {
+          "upstream": "currency",
+          "downstream": "currency"
         },
         {
           "upstream": "usd_rate",
-          "downstream": "aov_usd"
-        },
-        {
-          "upstream": "usd_rate",
-          "downstream": "aov_median_usd"
+          "downstream": "usd_rate"
         }
       ]
     },
@@ -156,70 +174,42 @@
           "downstream": "status"
         }
       ]
-    },
-    {
-      "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
-      "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
-      "columns": [
-        {
-          "upstream": "rate_day",
-          "downstream": "rate_day"
-        },
-        {
-          "upstream": "currency",
-          "downstream": "currency"
-        },
-        {
-          "upstream": "usd_rate",
-          "downstream": "usd_rate"
-        }
-      ]
     }
   ],
   "hypotheses": [
     {
-      "id": "hyp_fef641dac3",
-      "description": "raw.raw_orders.amount began arriving in minor units (cents) instead of major currency units for some/all orders from 2026-08-07, inflating amount 100x.",
-      "target_urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
+      "id": "hyp_7c4d4e33a3",
+      "description": "H1: stg_orders.amount is being emitted in minor units (cents) instead of dollars for some cohort starting 2026-08-07, inflating revenue and AOV exactly 100x while order counts stay flat.",
+      "target_urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
       "status": "confirmed",
       "confidence": 0.98,
       "evidence_ids": [
-        "ev_46ed4fc52d",
-        "ev_2a0e1a6df2",
-        "ev_b3a432a9b9",
-        "ev_082bf199fc",
-        "ev_99f62985f4"
+        "ev_41d5fe247d",
+        "ev_bdd675446a",
+        "ev_b15b1ef046",
+        "ev_c48d8d926b",
+        "ev_f0ba66acd6",
+        "ev_fe9d187603"
       ]
     },
     {
-      "id": "hyp_ec38cc8f33",
-      "description": "raw.raw_fx_rates.usd_rate became 100x too large from 2026-08-07 (e.g. scaling/unit change), inflating revenue_usd conversion in marts.fct_revenue.",
-      "target_urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
+      "id": "hyp_e759656803",
+      "description": "H2: stg_fx_rates.usd_rate is corrupted (e.g. inverted or scaled by 100) from 2026-08-07, inflating converted revenue_usd 100x.",
+      "target_urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
       "status": "eliminated",
       "confidence": 0.02,
       "evidence_ids": [
-        "ev_66422a90c1"
-      ]
-    },
-    {
-      "id": "hyp_05ae903ca7",
-      "description": "A transform defect (stg_orders or fct_revenue SQL) introduces a 100x scaling, e.g. a cents->dollars division dropped or applied to the wrong cohort.",
-      "target_urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
-      "status": "eliminated",
-      "confidence": 0.05,
-      "evidence_ids": [
-        "ev_07ca87974f",
-        "ev_143dc8d308",
-        "ev_46ed4fc52d"
+        "ev_e8b3f5df66",
+        "ev_c48d8d926b"
       ]
     }
   ],
   "evidence": [
     {
-      "id": "ev_f918bbdfd1",
-      "ts": "2026-08-10T09:18:19.386757+00:00",
+      "id": "ev_f2f3e511d5",
+      "ts": "2026-08-10T15:28:52.370536+00:00",
       "kind": "metadata",
-      "title": "DataHub search: “revenue executive dashboard”",
+      "title": "DataHub search: “revenue executive dashboard metric”",
       "detail": "1 entities matched",
       "data": [
         {
@@ -234,8 +224,8 @@
       "transport": "datahub-mcp-server"
     },
     {
-      "id": "ev_ac73812134",
-      "ts": "2026-08-10T09:18:19.395251+00:00",
+      "id": "ev_d9f465ed82",
+      "ts": "2026-08-10T15:28:52.375006+00:00",
       "kind": "baseline_comparison",
       "title": "Metric history vs baseline",
       "detail": "KPI 2026-08-09: 2,737,324 vs expected 29,349 (ratio 93.3x)",
@@ -702,245 +692,10 @@
       "transport": "duckdb"
     },
     {
-      "id": "ev_118feb38a7",
-      "ts": "2026-08-10T09:18:25.606018+00:00",
-      "kind": "metadata",
-      "title": "DataHub context: marts.exec_revenue_metric",
-      "detail": "schema + contract + ownership retrieved",
-      "data": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
-        "name": "marts.exec_revenue_metric",
-        "platform": "duckdb",
-        "description": "**Executive Revenue KPI** — the single number reported on the executive dashboard every morning. `anomaly_ratio` compares the latest day to a stable trailing-28d median window.",
-        "custom_properties": {
-          "pipeline": "blackbox-demo-retail",
-          "note": "Deterministic demo fixture — synthetic data, real executable pipeline.",
-          "build_tool": "pipeline/run.py (DuckDB)"
-        },
-        "schema_fields": [
-          {
-            "field": "kpi_day",
-            "type": "DATE",
-            "description": "The day the KPI reports on (latest complete day)."
-          },
-          {
-            "field": "revenue",
-            "type": "DOUBLE",
-            "description": "Executive Revenue for kpi_day (USD)."
-          },
-          {
-            "field": "trailing_28d_median_revenue",
-            "type": "DOUBLE",
-            "description": "Median daily revenue over the stable trailing window (kpi_day-35 .. kpi_day-8)."
-          },
-          {
-            "field": "anomaly_ratio",
-            "type": "DOUBLE",
-            "description": "revenue / trailing_28d_median_revenue. Healthy ≈ 1.0."
-          }
-        ],
-        "owners": [
-          {
-            "urn": "urn:li:corpuser:priya.desai",
-            "name": "Priya Desai",
-            "type": "TECHNICAL_OWNER"
-          }
-        ],
-        "tags": [
-          "kpi",
-          "executive-reporting"
-        ],
-        "domain": null,
-        "via": "datahub-mcp-server+graphql",
-        "health": [
-          {
-            "type": "INCIDENTS",
-            "status": "PASS"
-          }
-        ]
-      },
-      "source": "datahub",
-      "transport": "datahub-mcp-server+graphql"
-    },
-    {
-      "id": "ev_8659030b83",
-      "ts": "2026-08-10T09:18:26.804391+00:00",
-      "kind": "lineage",
-      "title": "Lineage upstream of marts.exec_revenue_metric",
-      "detail": "6 nodes / 5 edges from DataHub",
-      "data": {
-        "root": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
-        "direction": "UPSTREAM",
-        "nodes": [
-          {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
-            "name": "marts.exec_revenue_metric",
-            "platform": "duckdb"
-          },
-          {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
-            "name": "marts.fct_revenue",
-            "platform": "duckdb"
-          },
-          {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
-            "name": "staging.stg_orders",
-            "platform": "duckdb"
-          },
-          {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
-            "name": "staging.stg_fx_rates",
-            "platform": "duckdb"
-          },
-          {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
-            "name": "raw.raw_orders",
-            "platform": "duckdb"
-          },
-          {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
-            "name": "raw.raw_fx_rates",
-            "platform": "duckdb"
-          }
-        ],
-        "edges": [
-          {
-            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
-            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
-            "columns": [
-              {
-                "upstream": "day",
-                "downstream": "kpi_day"
-              },
-              {
-                "upstream": "revenue_usd",
-                "downstream": "revenue"
-              },
-              {
-                "upstream": "revenue_usd",
-                "downstream": "trailing_28d_median_revenue"
-              },
-              {
-                "upstream": "revenue_usd",
-                "downstream": "anomaly_ratio"
-              }
-            ]
-          },
-          {
-            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
-            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
-            "columns": [
-              {
-                "upstream": "order_day",
-                "downstream": "day"
-              },
-              {
-                "upstream": "order_id",
-                "downstream": "order_count"
-              },
-              {
-                "upstream": "currency",
-                "downstream": "revenue_usd"
-              },
-              {
-                "upstream": "amount",
-                "downstream": "revenue_usd"
-              },
-              {
-                "upstream": "amount",
-                "downstream": "aov_usd"
-              },
-              {
-                "upstream": "amount",
-                "downstream": "aov_median_usd"
-              }
-            ]
-          },
-          {
-            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
-            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
-            "columns": [
-              {
-                "upstream": "usd_rate",
-                "downstream": "revenue_usd"
-              },
-              {
-                "upstream": "usd_rate",
-                "downstream": "aov_usd"
-              },
-              {
-                "upstream": "usd_rate",
-                "downstream": "aov_median_usd"
-              }
-            ]
-          },
-          {
-            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
-            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
-            "columns": [
-              {
-                "upstream": "order_id",
-                "downstream": "order_id"
-              },
-              {
-                "upstream": "order_ts",
-                "downstream": "order_ts"
-              },
-              {
-                "upstream": "order_ts",
-                "downstream": "order_day"
-              },
-              {
-                "upstream": "customer_id",
-                "downstream": "customer_id"
-              },
-              {
-                "upstream": "currency",
-                "downstream": "currency"
-              },
-              {
-                "upstream": "amount",
-                "downstream": "amount"
-              },
-              {
-                "upstream": "payment_processor",
-                "downstream": "payment_processor"
-              },
-              {
-                "upstream": "status",
-                "downstream": "status"
-              }
-            ]
-          },
-          {
-            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
-            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
-            "columns": [
-              {
-                "upstream": "rate_day",
-                "downstream": "rate_day"
-              },
-              {
-                "upstream": "currency",
-                "downstream": "currency"
-              },
-              {
-                "upstream": "usd_rate",
-                "downstream": "usd_rate"
-              }
-            ]
-          }
-        ],
-        "via": "datahub-mcp-server"
-      },
-      "source": "datahub",
-      "transport": "datahub-mcp-server"
-    },
-    {
-      "id": "ev_99f62985f4",
-      "ts": "2026-08-10T09:18:26.818067+00:00",
+      "id": "ev_c48d8d926b",
+      "ts": "2026-08-10T15:28:52.386709+00:00",
       "kind": "baseline_comparison",
-      "title": "Baseline comparison (last 10 days)",
+      "title": "Baseline comparison (last 14 days)",
       "detail": "days over 1.5x baseline: ['2026-08-09', '2026-08-08', '2026-08-07']",
       "data": {
         "comparisons": [
@@ -1053,6 +808,50 @@
             "aov_ratio": 1.0,
             "order_count": 421,
             "baseline_order_count": 421
+          },
+          {
+            "day": "2026-07-30",
+            "revenue_usd": 33216.65,
+            "baseline_revenue_usd": 33216.65,
+            "revenue_ratio": 1.0,
+            "aov_median_usd": 61.81,
+            "baseline_aov_median_usd": 61.81,
+            "aov_ratio": 1.0,
+            "order_count": 393,
+            "baseline_order_count": 393
+          },
+          {
+            "day": "2026-07-29",
+            "revenue_usd": 35540.0,
+            "baseline_revenue_usd": 35540.0,
+            "revenue_ratio": 1.0,
+            "aov_median_usd": 60.19,
+            "baseline_aov_median_usd": 60.19,
+            "aov_ratio": 1.0,
+            "order_count": 450,
+            "baseline_order_count": 450
+          },
+          {
+            "day": "2026-07-28",
+            "revenue_usd": 33557.62,
+            "baseline_revenue_usd": 33557.62,
+            "revenue_ratio": 1.0,
+            "aov_median_usd": 66.05,
+            "baseline_aov_median_usd": 66.05,
+            "aov_ratio": 1.0,
+            "order_count": 405,
+            "baseline_order_count": 405
+          },
+          {
+            "day": "2026-07-27",
+            "revenue_usd": 29621.78,
+            "baseline_revenue_usd": 29621.78,
+            "revenue_ratio": 1.0,
+            "aov_median_usd": 59.74,
+            "baseline_aov_median_usd": 59.74,
+            "aov_ratio": 1.0,
+            "order_count": 374,
+            "baseline_order_count": 374
           }
         ],
         "baseline_source": "pipeline/baselines/daily_revenue_baseline.json"
@@ -1061,8 +860,920 @@
       "transport": "duckdb"
     },
     {
-      "id": "ev_46ed4fc52d",
-      "ts": "2026-08-10T09:18:42.744371+00:00",
+      "id": "ev_4e91a68bc4",
+      "ts": "2026-08-10T15:28:56.892955+00:00",
+      "kind": "metadata",
+      "title": "DataHub context: marts.exec_revenue_metric",
+      "detail": "schema + contract + ownership retrieved",
+      "data": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
+        "name": "marts.exec_revenue_metric",
+        "platform": "duckdb",
+        "description": "**Executive Revenue KPI** — the single number reported on the executive dashboard every morning. `anomaly_ratio` compares the latest day to a stable trailing-28d median window.",
+        "custom_properties": {
+          "pipeline": "blackbox-demo-retail",
+          "note": "Deterministic demo fixture — synthetic data, real executable pipeline.",
+          "build_tool": "pipeline/run.py (DuckDB)"
+        },
+        "schema_fields": [
+          {
+            "field": "kpi_day",
+            "type": "DATE",
+            "description": "The day the KPI reports on (latest complete day)."
+          },
+          {
+            "field": "revenue",
+            "type": "DOUBLE",
+            "description": "Executive Revenue for kpi_day (USD)."
+          },
+          {
+            "field": "trailing_28d_median_revenue",
+            "type": "DOUBLE",
+            "description": "Median daily revenue over the stable trailing window (kpi_day-35 .. kpi_day-8)."
+          },
+          {
+            "field": "anomaly_ratio",
+            "type": "DOUBLE",
+            "description": "revenue / trailing_28d_median_revenue. Healthy ≈ 1.0."
+          }
+        ],
+        "owners": [
+          {
+            "urn": "urn:li:corpuser:priya.desai",
+            "name": "Priya Desai",
+            "type": "TECHNICAL_OWNER"
+          }
+        ],
+        "tags": [
+          "kpi",
+          "executive-reporting"
+        ],
+        "domain": null,
+        "via": "datahub-mcp-server+graphql",
+        "health": [
+          {
+            "type": "INCIDENTS",
+            "status": "PASS"
+          }
+        ]
+      },
+      "source": "datahub",
+      "transport": "datahub-mcp-server+graphql"
+    },
+    {
+      "id": "ev_521cefd14c",
+      "ts": "2026-08-10T15:28:58.073355+00:00",
+      "kind": "lineage",
+      "title": "Lineage upstream of marts.exec_revenue_metric",
+      "detail": "6 nodes / 5 edges from DataHub",
+      "data": {
+        "root": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
+        "direction": "UPSTREAM",
+        "nodes": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
+            "name": "marts.exec_revenue_metric",
+            "platform": "duckdb"
+          },
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
+            "name": "marts.fct_revenue",
+            "platform": "duckdb"
+          },
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
+            "name": "staging.stg_fx_rates",
+            "platform": "duckdb"
+          },
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
+            "name": "staging.stg_orders",
+            "platform": "duckdb"
+          },
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
+            "name": "raw.raw_fx_rates",
+            "platform": "duckdb"
+          },
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
+            "name": "raw.raw_orders",
+            "platform": "duckdb"
+          }
+        ],
+        "edges": [
+          {
+            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
+            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.exec_revenue_metric,PROD)",
+            "columns": [
+              {
+                "upstream": "day",
+                "downstream": "kpi_day"
+              },
+              {
+                "upstream": "revenue_usd",
+                "downstream": "revenue"
+              },
+              {
+                "upstream": "revenue_usd",
+                "downstream": "trailing_28d_median_revenue"
+              },
+              {
+                "upstream": "revenue_usd",
+                "downstream": "anomaly_ratio"
+              }
+            ]
+          },
+          {
+            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
+            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
+            "columns": [
+              {
+                "upstream": "usd_rate",
+                "downstream": "revenue_usd"
+              },
+              {
+                "upstream": "usd_rate",
+                "downstream": "aov_usd"
+              },
+              {
+                "upstream": "usd_rate",
+                "downstream": "aov_median_usd"
+              }
+            ]
+          },
+          {
+            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
+            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)",
+            "columns": [
+              {
+                "upstream": "order_day",
+                "downstream": "day"
+              },
+              {
+                "upstream": "order_id",
+                "downstream": "order_count"
+              },
+              {
+                "upstream": "currency",
+                "downstream": "revenue_usd"
+              },
+              {
+                "upstream": "amount",
+                "downstream": "revenue_usd"
+              },
+              {
+                "upstream": "amount",
+                "downstream": "aov_usd"
+              },
+              {
+                "upstream": "amount",
+                "downstream": "aov_median_usd"
+              }
+            ]
+          },
+          {
+            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_fx_rates,PROD)",
+            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_fx_rates,PROD)",
+            "columns": [
+              {
+                "upstream": "rate_day",
+                "downstream": "rate_day"
+              },
+              {
+                "upstream": "currency",
+                "downstream": "currency"
+              },
+              {
+                "upstream": "usd_rate",
+                "downstream": "usd_rate"
+              }
+            ]
+          },
+          {
+            "source": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
+            "target": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
+            "columns": [
+              {
+                "upstream": "order_id",
+                "downstream": "order_id"
+              },
+              {
+                "upstream": "order_ts",
+                "downstream": "order_ts"
+              },
+              {
+                "upstream": "order_ts",
+                "downstream": "order_day"
+              },
+              {
+                "upstream": "customer_id",
+                "downstream": "customer_id"
+              },
+              {
+                "upstream": "currency",
+                "downstream": "currency"
+              },
+              {
+                "upstream": "amount",
+                "downstream": "amount"
+              },
+              {
+                "upstream": "payment_processor",
+                "downstream": "payment_processor"
+              },
+              {
+                "upstream": "status",
+                "downstream": "status"
+              }
+            ]
+          }
+        ],
+        "via": "datahub-mcp-server"
+      },
+      "source": "datahub",
+      "transport": "datahub-mcp-server"
+    },
+    {
+      "id": "ev_e3ee3868a2",
+      "ts": "2026-08-10T15:29:05.978551+00:00",
+      "kind": "metadata",
+      "title": "DataHub context: staging.stg_orders",
+      "detail": "schema + contract + ownership retrieved",
+      "data": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)",
+        "name": "staging.stg_orders",
+        "platform": "duckdb",
+        "description": "Cleaned order stream. Excludes cancelled and refunded orders from the revenue path. This is the canonical input for all revenue reporting.",
+        "custom_properties": {
+          "pipeline": "blackbox-demo-retail",
+          "note": "Deterministic demo fixture — synthetic data, real executable pipeline.",
+          "build_tool": "pipeline/run.py (DuckDB)"
+        },
+        "schema_fields": [
+          {
+            "field": "order_id",
+            "type": "VARCHAR",
+            "description": ""
+          },
+          {
+            "field": "order_ts",
+            "type": "TIMESTAMP",
+            "description": ""
+          },
+          {
+            "field": "order_day",
+            "type": "DATE",
+            "description": "Order date (UTC) derived from order_ts."
+          },
+          {
+            "field": "customer_id",
+            "type": "VARCHAR",
+            "description": ""
+          },
+          {
+            "field": "currency",
+            "type": "VARCHAR",
+            "description": ""
+          },
+          {
+            "field": "amount",
+            "type": "DOUBLE",
+            "description": "Order amount in major currency units (passed through from raw_orders under contract v1.3)."
+          },
+          {
+            "field": "payment_processor",
+            "type": "VARCHAR",
+            "description": "Capturing payment provider (see raw_orders.payment_processor)."
+          },
+          {
+            "field": "status",
+            "type": "VARCHAR",
+            "description": ""
+          }
+        ],
+        "owners": [
+          {
+            "urn": "urn:li:corpuser:priya.desai",
+            "name": "Priya Desai",
+            "type": "TECHNICAL_OWNER"
+          }
+        ],
+        "tags": [],
+        "domain": null,
+        "via": "datahub-mcp-server+graphql",
+        "health": [
+          {
+            "type": "INCIDENTS",
+            "status": "PASS"
+          }
+        ]
+      },
+      "source": "datahub",
+      "transport": "datahub-mcp-server+graphql"
+    },
+    {
+      "id": "ev_f0ba66acd6",
+      "ts": "2026-08-10T15:29:06.298266+00:00",
+      "kind": "metadata",
+      "title": "DataHub context: raw.raw_orders",
+      "detail": "schema + contract + ownership retrieved",
+      "data": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
+        "name": "raw.raw_orders",
+        "platform": "duckdb",
+        "description": "Order events extracted nightly from the payments platform.\n\n**Contract (payments-platform, v1.3):** one row per order attempt; `amount` is a decimal in major currency units; `status` reflects the terminal state at extract time.",
+        "custom_properties": {
+          "pipeline": "blackbox-demo-retail",
+          "note": "Deterministic demo fixture — synthetic data, real executable pipeline.",
+          "build_tool": "pipeline/run.py (DuckDB)"
+        },
+        "schema_fields": [
+          {
+            "field": "order_id",
+            "type": "VARCHAR",
+            "description": "Globally unique order identifier (hex)."
+          },
+          {
+            "field": "order_ts",
+            "type": "VARCHAR",
+            "description": "Order capture timestamp, UTC ISO-8601."
+          },
+          {
+            "field": "customer_id",
+            "type": "VARCHAR",
+            "description": "FK to raw_customers.customer_id."
+          },
+          {
+            "field": "currency",
+            "type": "VARCHAR",
+            "description": "ISO-4217 currency code of the order (USD/EUR/GBP/CAD)."
+          },
+          {
+            "field": "amount",
+            "type": "DOUBLE",
+            "description": "Order amount in MAJOR currency units as a decimal (e.g. 49.99 = $49.99). Contract v1.3: two decimal places, as reported by the capturing payment processor."
+          },
+          {
+            "field": "payment_processor",
+            "type": "VARCHAR",
+            "description": "Payment provider that captured the order. Known values: legacy_pos, shopgate, cloudpay_v2 (new provider being rolled out in early August 2026 per the payments-platform runbook)."
+          },
+          {
+            "field": "status",
+            "type": "VARCHAR",
+            "description": "Terminal order state: completed | cancelled | refunded."
+          }
+        ],
+        "owners": [
+          {
+            "urn": "urn:li:corpuser:jordan.lee",
+            "name": "Jordan Lee",
+            "type": "TECHNICAL_OWNER"
+          }
+        ],
+        "tags": [],
+        "domain": null,
+        "via": "datahub-mcp-server+graphql",
+        "health": [
+          {
+            "type": "INCIDENTS",
+            "status": "PASS"
+          }
+        ]
+      },
+      "source": "datahub",
+      "transport": "datahub-mcp-server+graphql"
+    },
+    {
+      "id": "ev_41d5fe247d",
+      "ts": "2026-08-10T15:29:13.435991+00:00",
+      "kind": "profile",
+      "title": "Profile staging.stg_orders.amount by payment_processor",
+      "detail": "17 day×segment rows",
+      "data": {
+        "table": "staging.stg_orders",
+        "column": "amount",
+        "segment_by": "payment_processor",
+        "days": [
+          {
+            "day": "2026-08-09",
+            "segment": "cloudpay_v2",
+            "n": 327,
+            "mean": 8339.8685,
+            "median": 6134.0,
+            "min": 1223.0,
+            "max": 55262.0,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-08",
+            "segment": "cloudpay_v2",
+            "n": 349,
+            "mean": 7825.7163,
+            "median": 5980.0,
+            "min": 821.0,
+            "max": 41079.0,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-07",
+            "segment": "cloudpay_v2",
+            "n": 334,
+            "mean": 7933.5419,
+            "median": 6422.0,
+            "min": 562.0,
+            "max": 32945.0,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-06",
+            "segment": "legacy_pos",
+            "n": 280,
+            "mean": 86.8837,
+            "median": 61.965,
+            "min": 10.2,
+            "max": 877.94,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-06",
+            "segment": "shopgate",
+            "n": 107,
+            "mean": 84.1581,
+            "median": 67.04,
+            "min": 14.25,
+            "max": 342.88,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-05",
+            "segment": "legacy_pos",
+            "n": 312,
+            "mean": 81.5293,
+            "median": 59.525,
+            "min": 6.64,
+            "max": 467.6,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-05",
+            "segment": "shopgate",
+            "n": 126,
+            "mean": 79.3675,
+            "median": 57.325,
+            "min": 13.34,
+            "max": 341.17,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-04",
+            "segment": "legacy_pos",
+            "n": 277,
+            "mean": 79.8632,
+            "median": 62.03,
+            "min": 8.74,
+            "max": 489.42,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-04",
+            "segment": "shopgate",
+            "n": 117,
+            "mean": 83.4359,
+            "median": 68.81,
+            "min": 10.39,
+            "max": 258.37,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-03",
+            "segment": "legacy_pos",
+            "n": 294,
+            "mean": 83.8332,
+            "median": 60.735,
+            "min": 12.95,
+            "max": 413.64,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-03",
+            "segment": "shopgate",
+            "n": 113,
+            "mean": 86.108,
+            "median": 72.81,
+            "min": 9.74,
+            "max": 277.82,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-02",
+            "segment": "legacy_pos",
+            "n": 256,
+            "mean": 78.4816,
+            "median": 62.155,
+            "min": 7.96,
+            "max": 597.24,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-02",
+            "segment": "shopgate",
+            "n": 108,
+            "mean": 92.1926,
+            "median": 59.645,
+            "min": 10.33,
+            "max": 505.1,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-01",
+            "segment": "legacy_pos",
+            "n": 242,
+            "mean": 77.0065,
+            "median": 63.84,
+            "min": 5.15,
+            "max": 304.39,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-08-01",
+            "segment": "shopgate",
+            "n": 95,
+            "mean": 77.7311,
+            "median": 60.53,
+            "min": 9.28,
+            "max": 437.68,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-07-31",
+            "segment": "legacy_pos",
+            "n": 298,
+            "mean": 81.9991,
+            "median": 60.595,
+            "min": 9.25,
+            "max": 527.54,
+            "null_rate": 0.0
+          },
+          {
+            "day": "2026-07-31",
+            "segment": "shopgate",
+            "n": 123,
+            "mean": 81.7317,
+            "median": 64.0,
+            "min": 8.12,
+            "max": 421.46,
+            "null_rate": 0.0
+          }
+        ]
+      },
+      "source": "warehouse",
+      "transport": "duckdb"
+    },
+    {
+      "id": "ev_e8b3f5df66",
+      "ts": "2026-08-10T15:29:21.396072+00:00",
+      "kind": "sql",
+      "title": "Ad-hoc SQL",
+      "detail": "SELECT rate_day, currency, usd_rate FROM staging.stg_fx_rates WHERE rate_day >= DATE '2026-08-04' ORDER BY rate_day, currency",
+      "data": {
+        "columns": [
+          "rate_day",
+          "currency",
+          "usd_rate"
+        ],
+        "rows": [
+          [
+            "2026-08-04",
+            "CAD",
+            0.718247
+          ],
+          [
+            "2026-08-04",
+            "EUR",
+            1.072668
+          ],
+          [
+            "2026-08-04",
+            "GBP",
+            1.272123
+          ],
+          [
+            "2026-08-04",
+            "USD",
+            1.0
+          ],
+          [
+            "2026-08-05",
+            "CAD",
+            0.718958
+          ],
+          [
+            "2026-08-05",
+            "EUR",
+            1.070478
+          ],
+          [
+            "2026-08-05",
+            "GBP",
+            1.270418
+          ],
+          [
+            "2026-08-05",
+            "USD",
+            1.0
+          ],
+          [
+            "2026-08-06",
+            "CAD",
+            0.718958
+          ],
+          [
+            "2026-08-06",
+            "EUR",
+            1.070478
+          ],
+          [
+            "2026-08-06",
+            "GBP",
+            1.270418
+          ],
+          [
+            "2026-08-06",
+            "USD",
+            1.0
+          ],
+          [
+            "2026-08-07",
+            "CAD",
+            0.718958
+          ],
+          [
+            "2026-08-07",
+            "EUR",
+            1.070478
+          ],
+          [
+            "2026-08-07",
+            "GBP",
+            1.270418
+          ],
+          [
+            "2026-08-07",
+            "USD",
+            1.0
+          ],
+          [
+            "2026-08-08",
+            "CAD",
+            0.718958
+          ],
+          [
+            "2026-08-08",
+            "EUR",
+            1.070478
+          ],
+          [
+            "2026-08-08",
+            "GBP",
+            1.270418
+          ],
+          [
+            "2026-08-08",
+            "USD",
+            1.0
+          ],
+          [
+            "2026-08-09",
+            "CAD",
+            0.718958
+          ],
+          [
+            "2026-08-09",
+            "EUR",
+            1.070478
+          ],
+          [
+            "2026-08-09",
+            "GBP",
+            1.270418
+          ],
+          [
+            "2026-08-09",
+            "USD",
+            1.0
+          ]
+        ],
+        "row_count_returned": 24,
+        "truncated_at": 50
+      },
+      "source": "warehouse",
+      "transport": "duckdb"
+    },
+    {
+      "id": "ev_bdd675446a",
+      "ts": "2026-08-10T15:29:28.382052+00:00",
+      "kind": "sql",
+      "title": "Ad-hoc SQL",
+      "detail": "SELECT CAST(order_ts AS DATE) d, payment_processor, count(*) n, sum(CASE WHEN amount = round(amount) THEN 1 ELSE 0 END) integer_valued, min(amount) mn, median(amount) med, max(amount) mx FROM raw.raw_",
+      "data": {
+        "columns": [
+          "d",
+          "payment_processor",
+          "n",
+          "integer_valued",
+          "mn",
+          "med",
+          "mx"
+        ],
+        "rows": [
+          [
+            "2026-08-05",
+            "legacy_pos",
+            328,
+            2,
+            6.64,
+            60.489999999999995,
+            467.6
+          ],
+          [
+            "2026-08-05",
+            "shopgate",
+            130,
+            1,
+            13.34,
+            57.879999999999995,
+            341.17
+          ],
+          [
+            "2026-08-06",
+            "legacy_pos",
+            295,
+            5,
+            10.2,
+            61.66,
+            877.94
+          ],
+          [
+            "2026-08-06",
+            "shopgate",
+            111,
+            3,
+            14.25,
+            66.97,
+            342.88
+          ],
+          [
+            "2026-08-07",
+            "cloudpay_v2",
+            356,
+            356,
+            562.0,
+            6373.5,
+            32945.0
+          ],
+          [
+            "2026-08-08",
+            "cloudpay_v2",
+            364,
+            364,
+            821.0,
+            5955.5,
+            41079.0
+          ],
+          [
+            "2026-08-09",
+            "cloudpay_v2",
+            342,
+            342,
+            1223.0,
+            6076.0,
+            55262.0
+          ]
+        ],
+        "row_count_returned": 7,
+        "truncated_at": 50
+      },
+      "source": "warehouse",
+      "transport": "duckdb"
+    },
+    {
+      "id": "ev_bce22ad7e1",
+      "ts": "2026-08-10T15:29:37.456394+00:00",
+      "kind": "test",
+      "title": "Invariant suite",
+      "detail": "25/32 passed",
+      "data": {
+        "total": 32,
+        "passed": 25,
+        "failed": 7,
+        "failures": [
+          {
+            "name": "pipeline.invariants.test_invariants::test_max_usd_amount_sane",
+            "message": "AssertionError: max usd order amount 55262.00 >= 10000\nassert 55262.0 < 10000"
+          },
+          {
+            "name": "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-07]",
+            "message": "AssertionError: 2026-08-07: median AOV 6483.50 outside [30, 250] USD\nassert 6483.5 <= 250.0"
+          },
+          {
+            "name": "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-08]",
+            "message": "AssertionError: 2026-08-08: median AOV 5972.00 outside [30, 250] USD\nassert 5972.0 <= 250.0"
+          },
+          {
+            "name": "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-09]",
+            "message": "AssertionError: 2026-08-09: median AOV 6213.00 outside [30, 250] USD\nassert 6213.0 <= 250.0"
+          },
+          {
+            "name": "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-07]",
+            "message": "AssertionError: 2026-08-07: revenue 2655717.70 is 80.58x trailing 14d median 32956.61\nassert 80.58224738527416 <= 2.8"
+          },
+          {
+            "name": "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-08]",
+            "message": "AssertionError: 2026-08-08: revenue 2738360.82 is 82.25x trailing 14d median 33294.65\nassert 82.24627139795732 <= 2.8"
+          },
+          {
+            "name": "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-09]",
+            "message": "AssertionError: 2026-08-09: revenue 2737323.50 is 81.80x trailing 14d median 33465.14\nassert 81.79627842529247 <= 2.8"
+          }
+        ]
+      },
+      "source": "pipeline",
+      "transport": "pytest"
+    },
+    {
+      "id": "ev_fe9d187603",
+      "ts": "2026-08-10T15:29:40.265235+00:00",
+      "kind": "sql",
+      "title": "Transform source: pipeline/transforms/stg_orders.sql",
+      "detail": "read",
+      "data": {
+        "file": "pipeline/transforms/stg_orders.sql",
+        "sql": "-- stg_orders: cleaned order stream.\n-- Excludes cancelled and refunded orders from the revenue path.\nCREATE OR REPLACE TABLE staging.stg_orders AS\nSELECT\n    order_id,\n    CAST(order_ts AS TIMESTAMP) AS order_ts,\n    CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n    customer_id,\n    currency,\n    CAST(amount AS DOUBLE) AS amount,\n    payment_processor,\n    status\nFROM raw.raw_orders\nWHERE status NOT IN ('cancelled', 'refunded');\n"
+      },
+      "source": "pipeline",
+      "transport": "pytest"
+    },
+    {
+      "id": "ev_280faeab5f",
+      "ts": "2026-08-10T15:29:40.268270+00:00",
+      "kind": "sql",
+      "title": "Transform source: pipeline/transforms/fct_revenue.sql",
+      "detail": "read",
+      "data": {
+        "file": "pipeline/transforms/fct_revenue.sql",
+        "sql": "-- fct_revenue: daily revenue fact, USD-normalized via stg_fx_rates.\nCREATE OR REPLACE TABLE marts.fct_revenue AS\nSELECT\n    o.order_day AS day,\n    COUNT(*) AS order_count,\n    ROUND(SUM(o.amount * fx.usd_rate), 2) AS revenue_usd,\n    ROUND(AVG(o.amount * fx.usd_rate), 2) AS aov_usd,\n    ROUND(MEDIAN(o.amount * fx.usd_rate), 2) AS aov_median_usd\nFROM staging.stg_orders o\nJOIN staging.stg_fx_rates fx\n  ON fx.rate_day = o.order_day\n AND fx.currency = o.currency\nGROUP BY o.order_day\nORDER BY o.order_day;\n"
+      },
+      "source": "pipeline",
+      "transport": "pytest"
+    },
+    {
+      "id": "ev_b15b1ef046",
+      "ts": "2026-08-10T15:29:45.661571+00:00",
+      "kind": "sql",
+      "title": "Ad-hoc SQL",
+      "detail": "SELECT payment_processor, min(CAST(order_ts AS DATE)) first_day, max(CAST(order_ts AS DATE)) last_day, count(*) n, round(100.0*sum(CASE WHEN amount=round(amount) THEN 1 ELSE 0 END)/count(*),2) pct_int",
+      "data": {
+        "columns": [
+          "payment_processor",
+          "first_day",
+          "last_day",
+          "n",
+          "pct_integer"
+        ],
+        "rows": [
+          [
+            "shopgate",
+            "2026-05-12",
+            "2026-08-06",
+            9941,
+            1.08
+          ],
+          [
+            "legacy_pos",
+            "2026-05-12",
+            "2026-08-06",
+            23470,
+            1.18
+          ],
+          [
+            "cloudpay_v2",
+            "2026-08-07",
+            "2026-08-09",
+            1062,
+            100.0
+          ]
+        ],
+        "row_count_returned": 3,
+        "truncated_at": 50
+      },
+      "source": "warehouse",
+      "transport": "duckdb"
+    },
+    {
+      "id": "ev_bebe4ecbd0",
+      "ts": "2026-08-10T15:30:26.130669+00:00",
       "kind": "profile",
       "title": "Profile raw.raw_orders.amount by payment_processor",
       "detail": "9 day×segment rows",
@@ -1167,126 +1878,22 @@
       "transport": "duckdb"
     },
     {
-      "id": "ev_2a0e1a6df2",
-      "ts": "2026-08-10T09:18:51.714958+00:00",
-      "kind": "sql",
-      "title": "Ad-hoc SQL",
-      "detail": "SELECT order_day, payment_processor, count(*) n, sum(CASE WHEN amount = round(amount,0) THEN 1 ELSE 0 END) integer_valued, min(amount) mn, max(amount) mx FROM staging.stg_orders WHERE order_day >= DAT",
+      "id": "ev_2f3cc6788a",
+      "ts": "2026-08-10T15:30:49.641788+00:00",
+      "kind": "writeback",
+      "title": "DataHub incident raised (ACTIVE)",
+      "detail": "ACTIVE incident raised in DataHub on 4 asset(s)",
       "data": {
-        "columns": [
-          "order_day",
-          "payment_processor",
-          "n",
-          "integer_valued",
-          "mn",
-          "mx"
-        ],
-        "rows": [
-          [
-            "2026-08-05",
-            "legacy_pos",
-            312,
-            2,
-            6.64,
-            467.6
-          ],
-          [
-            "2026-08-05",
-            "shopgate",
-            126,
-            1,
-            13.34,
-            341.17
-          ],
-          [
-            "2026-08-06",
-            "legacy_pos",
-            280,
-            5,
-            10.2,
-            877.94
-          ],
-          [
-            "2026-08-06",
-            "shopgate",
-            107,
-            3,
-            14.25,
-            342.88
-          ],
-          [
-            "2026-08-07",
-            "cloudpay_v2",
-            334,
-            334,
-            562.0,
-            32945.0
-          ],
-          [
-            "2026-08-08",
-            "cloudpay_v2",
-            349,
-            349,
-            821.0,
-            41079.0
-          ],
-          [
-            "2026-08-09",
-            "cloudpay_v2",
-            327,
-            327,
-            1223.0,
-            55262.0
-          ]
-        ],
-        "row_count_returned": 7,
-        "truncated_at": 50
+        "incident_urn": "urn:li:incident:2be8b44e-0a5a-4fbb-8ac9-391e2591d550",
+        "status": "raised",
+        "detail": "ACTIVE incident raised in DataHub on 4 asset(s)"
       },
-      "source": "warehouse",
-      "transport": "duckdb"
+      "source": "datahub",
+      "transport": null
     },
     {
-      "id": "ev_66422a90c1",
-      "ts": "2026-08-10T09:18:57.754800+00:00",
-      "kind": "sql",
-      "title": "Ad-hoc SQL",
-      "detail": "SELECT currency, min(usd_rate) mn, max(usd_rate) mx, count(*) n FROM raw.raw_fx_rates WHERE CAST(rate_day AS DATE) >= DATE '2026-07-28' GROUP BY 1 ORDER BY 1",
-      "data": {
-        "columns": [
-          "currency",
-          "mn",
-          "mx",
-          "n"
-        ],
-        "rows": [
-          [
-            "CAD",
-            0.717928,
-            0.719844,
-            9
-          ],
-          [
-            "EUR",
-            1.070478,
-            1.079818,
-            9
-          ],
-          [
-            "GBP",
-            1.26956,
-            1.27464,
-            9
-          ]
-        ],
-        "row_count_returned": 3,
-        "truncated_at": 50
-      },
-      "source": "warehouse",
-      "transport": "duckdb"
-    },
-    {
-      "id": "ev_07ca87974f",
-      "ts": "2026-08-10T09:18:57.756362+00:00",
+      "id": "ev_0fcbed02d4",
+      "ts": "2026-08-10T15:31:12.012736+00:00",
       "kind": "sql",
       "title": "Transform source: pipeline/transforms/stg_orders.sql",
       "detail": "read",
@@ -1298,8 +1905,8 @@
       "transport": "pytest"
     },
     {
-      "id": "ev_143dc8d308",
-      "ts": "2026-08-10T09:18:57.757966+00:00",
+      "id": "ev_13d0bde90d",
+      "ts": "2026-08-10T15:31:15.385216+00:00",
       "kind": "sql",
       "title": "Transform source: pipeline/transforms/fct_revenue.sql",
       "detail": "read",
@@ -1311,250 +1918,33 @@
       "transport": "pytest"
     },
     {
-      "id": "ev_b3a432a9b9",
-      "ts": "2026-08-10T09:19:04.523049+00:00",
-      "kind": "metadata",
-      "title": "DataHub context: raw.raw_orders",
-      "detail": "schema + contract + ownership retrieved",
-      "data": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
-        "name": "raw.raw_orders",
-        "platform": "duckdb",
-        "description": "Order events extracted nightly from the payments platform.\n\n**Contract (payments-platform, v1.3):** one row per order attempt; `amount` is a decimal in major currency units; `status` reflects the terminal state at extract time.",
-        "custom_properties": {
-          "pipeline": "blackbox-demo-retail",
-          "note": "Deterministic demo fixture — synthetic data, real executable pipeline.",
-          "build_tool": "pipeline/run.py (DuckDB)"
-        },
-        "schema_fields": [
-          {
-            "field": "order_id",
-            "type": "VARCHAR",
-            "description": "Globally unique order identifier (hex)."
-          },
-          {
-            "field": "order_ts",
-            "type": "VARCHAR",
-            "description": "Order capture timestamp, UTC ISO-8601."
-          },
-          {
-            "field": "customer_id",
-            "type": "VARCHAR",
-            "description": "FK to raw_customers.customer_id."
-          },
-          {
-            "field": "currency",
-            "type": "VARCHAR",
-            "description": "ISO-4217 currency code of the order (USD/EUR/GBP/CAD)."
-          },
-          {
-            "field": "amount",
-            "type": "DOUBLE",
-            "description": "Order amount in MAJOR currency units as a decimal (e.g. 49.99 = $49.99). Contract v1.3: two decimal places, as reported by the capturing payment processor."
-          },
-          {
-            "field": "payment_processor",
-            "type": "VARCHAR",
-            "description": "Payment provider that captured the order. Known values: legacy_pos, shopgate, cloudpay_v2 (new provider being rolled out in early August 2026 per the payments-platform runbook)."
-          },
-          {
-            "field": "status",
-            "type": "VARCHAR",
-            "description": "Terminal order state: completed | cancelled | refunded."
-          }
-        ],
-        "owners": [
-          {
-            "urn": "urn:li:corpuser:jordan.lee",
-            "name": "Jordan Lee",
-            "type": "TECHNICAL_OWNER"
-          }
-        ],
-        "tags": [],
-        "domain": null,
-        "via": "datahub-mcp-server+graphql",
-        "health": [
-          {
-            "type": "INCIDENTS",
-            "status": "FAIL",
-            "message": "21 active incidents",
-            "causes": [
-              "ACTIVE_INCIDENTS"
-            ]
-          }
-        ]
-      },
-      "source": "datahub",
-      "transport": "datahub-mcp-server+graphql"
-    },
-    {
-      "id": "ev_c422535786",
-      "ts": "2026-08-10T09:19:08.160737+00:00",
-      "kind": "test",
-      "title": "Invariant suite",
-      "detail": "25/32 passed",
-      "data": {
-        "total": 32,
-        "passed": 25,
-        "failed": 7,
-        "failures": [
-          {
-            "name": "pipeline.invariants.test_invariants::test_max_usd_amount_sane",
-            "message": "AssertionError: max usd order amount 55262.00 >= 10000\nassert 55262.0 < 10000"
-          },
-          {
-            "name": "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-07]",
-            "message": "AssertionError: 2026-08-07: median AOV 6483.50 outside [30, 250] USD\nassert 6483.5 <= 250.0"
-          },
-          {
-            "name": "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-08]",
-            "message": "AssertionError: 2026-08-08: median AOV 5972.00 outside [30, 250] USD\nassert 5972.0 <= 250.0"
-          },
-          {
-            "name": "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-09]",
-            "message": "AssertionError: 2026-08-09: median AOV 6213.00 outside [30, 250] USD\nassert 6213.0 <= 250.0"
-          },
-          {
-            "name": "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-07]",
-            "message": "AssertionError: 2026-08-07: revenue 2655717.70 is 80.58x trailing 14d median 32956.61\nassert 80.58224738527416 <= 2.8"
-          },
-          {
-            "name": "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-08]",
-            "message": "AssertionError: 2026-08-08: revenue 2738360.82 is 82.25x trailing 14d median 33294.65\nassert 82.24627139795732 <= 2.8"
-          },
-          {
-            "name": "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-09]",
-            "message": "AssertionError: 2026-08-09: revenue 2737323.50 is 81.80x trailing 14d median 33465.14\nassert 81.79627842529247 <= 2.8"
-          }
-        ]
-      },
-      "source": "pipeline",
-      "transport": "pytest"
-    },
-    {
-      "id": "ev_082bf199fc",
-      "ts": "2026-08-10T09:19:18.259435+00:00",
+      "id": "ev_350532230d",
+      "ts": "2026-08-10T15:31:15.387211+00:00",
       "kind": "sql",
-      "title": "Ad-hoc SQL",
-      "detail": "SELECT o.order_day AS day,\n       ROUND(SUM(o.amount * fx.usd_rate),2) AS revenue_as_is,\n       ROUND(SUM(CASE WHEN o.payment_processor='cloudpay_v2' THEN o.amount/100.0 ELSE o.amount END * fx.usd_rat",
-      "data": {
-        "columns": [
-          "day",
-          "revenue_as_is",
-          "revenue_if_cents_normalized",
-          "aov_median_normalized"
-        ],
-        "rows": [
-          [
-            "2026-08-07",
-            2655717.7,
-            26557.18,
-            64.84
-          ],
-          [
-            "2026-08-08",
-            2738360.82,
-            27383.61,
-            59.72
-          ],
-          [
-            "2026-08-09",
-            2737323.5,
-            27373.23,
-            62.13
-          ]
-        ],
-        "row_count_returned": 3,
-        "truncated_at": 50
-      },
-      "source": "warehouse",
-      "transport": "duckdb"
-    },
-    {
-      "id": "ev_27289b344a",
-      "ts": "2026-08-10T09:19:52.652803+00:00",
-      "kind": "writeback",
-      "title": "DataHub incident raised (ACTIVE)",
-      "detail": "ACTIVE incident raised in DataHub on 4 asset(s)",
-      "data": {
-        "incident_urn": "urn:li:incident:f01e4f38-bf1e-43c7-8369-e18af7fa14af",
-        "status": "raised",
-        "detail": "ACTIVE incident raised in DataHub on 4 asset(s)"
-      },
-      "source": "datahub",
-      "transport": null
-    },
-    {
-      "id": "ev_48dcf900b0",
-      "ts": "2026-08-10T09:20:15.967080+00:00",
-      "kind": "sql",
-      "title": "Transform source: pipeline/transforms/stg_orders.sql",
+      "title": "Transform source: pipeline/transforms/exec_revenue_metric.sql",
       "detail": "read",
       "data": {
-        "file": "pipeline/transforms/stg_orders.sql",
-        "sql": "-- stg_orders: cleaned order stream.\n-- Excludes cancelled and refunded orders from the revenue path.\nCREATE OR REPLACE TABLE staging.stg_orders AS\nSELECT\n    order_id,\n    CAST(order_ts AS TIMESTAMP) AS order_ts,\n    CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n    customer_id,\n    currency,\n    CAST(amount AS DOUBLE) AS amount,\n    payment_processor,\n    status\nFROM raw.raw_orders\nWHERE status NOT IN ('cancelled', 'refunded');\n"
+        "file": "pipeline/transforms/exec_revenue_metric.sql",
+        "sql": "-- exec_revenue_metric: single-row executive KPI.\n-- trailing_28d_median_revenue uses days -35..-8 relative to kpi_day (a stable\n-- pre-cutover window) so the reference is robust to recent turbulence.\nCREATE OR REPLACE TABLE marts.exec_revenue_metric AS\nWITH latest AS (\n    SELECT MAX(day) AS kpi_day FROM marts.fct_revenue\n),\ncurrent_rev AS (\n    SELECT f.day AS kpi_day, f.revenue_usd AS revenue\n    FROM marts.fct_revenue f, latest l\n    WHERE f.day = l.kpi_day\n),\ntrailing_window AS (\n    SELECT MEDIAN(f.revenue_usd) AS trailing_28d_median_revenue\n    FROM marts.fct_revenue f, latest l\n    WHERE f.day BETWEEN l.kpi_day - 35 AND l.kpi_day - 8\n)\nSELECT\n    c.kpi_day,\n    c.revenue,\n    ROUND(t.trailing_28d_median_revenue, 2) AS trailing_28d_median_revenue,\n    ROUND(c.revenue / t.trailing_28d_median_revenue, 4) AS anomaly_ratio\nFROM current_rev c, trailing_window t;\n"
       },
       "source": "pipeline",
       "transport": "pytest"
     },
     {
-      "id": "ev_1384d1d5d5",
-      "ts": "2026-08-10T09:20:22.853352+00:00",
-      "kind": "sql",
-      "title": "Ad-hoc SQL",
-      "detail": "SELECT payment_processor, MIN(CAST(order_ts AS DATE)) AS first_day, MAX(CAST(order_ts AS DATE)) AS last_day, COUNT(*) AS n, SUM(CASE WHEN CAST(amount AS DOUBLE) = ROUND(CAST(amount AS DOUBLE),0) THEN ",
-      "data": {
-        "columns": [
-          "payment_processor",
-          "first_day",
-          "last_day",
-          "n",
-          "integer_valued"
-        ],
-        "rows": [
-          [
-            "shopgate",
-            "2026-05-12",
-            "2026-08-06",
-            9941,
-            107
-          ],
-          [
-            "legacy_pos",
-            "2026-05-12",
-            "2026-08-06",
-            23470,
-            276
-          ],
-          [
-            "cloudpay_v2",
-            "2026-08-07",
-            "2026-08-09",
-            1062,
-            1062
-          ]
-        ],
-        "row_count_returned": 3,
-        "truncated_at": 50
-      },
-      "source": "warehouse",
-      "transport": "duckdb"
-    },
-    {
-      "id": "ev_3e88abf947",
-      "ts": "2026-08-10T09:20:35.864105+00:00",
+      "id": "ev_252637cb52",
+      "ts": "2026-08-10T15:31:31.391713+00:00",
       "kind": "patch",
       "title": "Patch proposed: pipeline/transforms/stg_orders.sql",
-      "detail": "Root cause is that the cloudpay_v2 provider (cut over 2026-08-07) emits raw.raw_orders.amount in minor units (integer cents), violating the documented contract \"Order amount in MAJOR currency units as a decimal ... two decimal places\" [ev_b3a432a9b9]. stg_orders is the ingestion-contract boundary th",
+      "detail": "Root cause is that raw.raw_orders.amount arrives in MINOR currency units (cents) for the cloudpay_v2 provider from 2026-08-07, violating contract v1.3 (\"major currency units as a decimal\"), while stg_orders did a bare CAST(amount AS DOUBLE) pass-through [ev_fe9d187603]. raw is an immutable vendor la",
       "data": {
-        "diff": "--- a/pipeline/transforms/stg_orders.sql\n+++ b/pipeline/transforms/stg_orders.sql\n@@ -1,5 +1,14 @@\n -- stg_orders: cleaned order stream.\n -- Excludes cancelled and refunded orders from the revenue path.\n+--\n+-- UNIT NORMALIZATION (incident 2026-08-07, cloudpay_v2 cutover):\n+-- The raw.raw_orders.amount contract (v1.3) requires MAJOR currency units as a\n+-- decimal (e.g. 49.99 = $49.99). The cloudpay_v2 provider, rolled out on\n+-- 2026-08-07, instead emits MINOR units (integer cents), which inflated all\n+-- downstream revenue/AOV by exactly 100x. We normalize that provider's cohort\n+-- back to major units here, at the ingestion-contract boundary. The rescale is\n+-- scoped strictly to payment_processor = 'cloudpay_v2'; legacy_pos and\n+-- shopgate feeds are already contract-compliant and pass through unchanged.\n CREATE OR REPLACE TABLE staging.stg_orders AS\n SELECT\n     order_id,\n@@ -7,7 +16,11 @@\n     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n     customer_id,\n     currency,\n-    CAST(amount AS DOUBLE) AS amount,\n+    CASE\n+        WHEN payment_processor = 'cloudpay_v2'\n+            THEN CAST(amount AS DOUBLE) / 100.0\n+        ELSE CAST(amount AS DOUBLE)\n+    END AS amount,\n     payment_processor,\n     status\n FROM raw.raw_orders\n"
+        "diff": "--- a/pipeline/transforms/stg_orders.sql\n+++ b/pipeline/transforms/stg_orders.sql\n@@ -1,5 +1,14 @@\n -- stg_orders: cleaned order stream.\n -- Excludes cancelled and refunded orders from the revenue path.\n+--\n+-- UNIT NORMALIZATION (incident fix, onset 2026-08-07):\n+-- raw.raw_orders.amount is contractually MAJOR currency units as a decimal\n+-- (contract v1.3, e.g. 49.99 = $49.99). The cloudpay_v2 provider, rolled out\n+-- in early August 2026, emits MINOR units (integer cents) instead, which is a\n+-- semantic contract violation that still validates as DOUBLE. raw is an\n+-- immutable vendor landing table, so staging is the documented normalization\n+-- boundary: we rescale the cloudpay_v2 cohort by 1/100 and leave every other\n+-- processor untouched. Remove this branch once the provider ships major units.\n CREATE OR REPLACE TABLE staging.stg_orders AS\n SELECT\n     order_id,\n@@ -7,7 +16,11 @@\n     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n     customer_id,\n     currency,\n-    CAST(amount AS DOUBLE) AS amount,\n+    CASE\n+        WHEN payment_processor = 'cloudpay_v2'\n+            THEN CAST(amount AS DOUBLE) / 100.0\n+        ELSE CAST(amount AS DOUBLE)\n+    END AS amount,\n     payment_processor,\n     status\n FROM raw.raw_orders\n"
       },
       "source": "git",
       "transport": "git"
     },
     {
-      "id": "ev_57f95e7607",
-      "ts": "2026-08-10T09:20:39.954016+00:00",
+      "id": "ev_a5b8a4b60b",
+      "ts": "2026-08-10T15:31:35.783026+00:00",
       "kind": "test",
       "title": "Post-repair verification",
       "detail": "32/32 tests passed; KPI ratio 0.93x",
@@ -2029,37 +2419,37 @@
       "transport": "pytest"
     },
     {
-      "id": "ev_8fa7439b66",
-      "ts": "2026-08-10T09:20:40.307585+00:00",
+      "id": "ev_60df638cfd",
+      "ts": "2026-08-10T15:31:36.100377+00:00",
       "kind": "patch",
-      "title": "Fix committed on branch blackbox/fix-inc_ee7f7471fb",
-      "detail": "018ef58 fix: The new cloudpay_v2 payment provider, cut over on 2026-08-07, reports\n pipeline/transforms/stg_orders.sql | 15 ++++++++++++++-\n 1 file changed, 14 insertions(+), 1 deletion(-)",
+      "title": "Fix committed on branch blackbox/fix-inc_686e61287f",
+      "detail": "ca08219 fix: The new cloudpay_v2 payment provider went live on 2026-08-07 emitting\n pipeline/transforms/stg_orders.sql | 15 ++++++++++++++-\n 1 file changed, 14 insertions(+), 1 deletion(-)",
       "data": {
-        "branch": "blackbox/fix-inc_ee7f7471fb",
-        "commit": "018ef581131a1681f9c205efead5d4acbbd83689",
-        "diff_stat": "018ef58 fix: The new cloudpay_v2 payment provider, cut over on 2026-08-07, reports\n pipeline/transforms/stg_orders.sql | 15 ++++++++++++++-\n 1 file changed, 14 insertions(+), 1 deletion(-)",
+        "branch": "blackbox/fix-inc_686e61287f",
+        "commit": "ca082191368f47bb7ea879e664b2d19f387a3c98",
+        "diff_stat": "ca08219 fix: The new cloudpay_v2 payment provider went live on 2026-08-07 emitting\n pipeline/transforms/stg_orders.sql | 15 ++++++++++++++-\n 1 file changed, 14 insertions(+), 1 deletion(-)",
         "pr_url": null
       },
       "source": "git",
       "transport": "git"
     },
     {
-      "id": "ev_68eee4003a",
-      "ts": "2026-08-10T09:20:40.996126+00:00",
+      "id": "ev_6b075b5851",
+      "ts": "2026-08-10T15:31:36.787548+00:00",
       "kind": "writeback",
       "title": "DataHub writeback",
-      "detail": "Incident RESOLVED (FIXED) in DataHub — Repair verified by BlackBox. | Patch: pipeline/transforms/stg_orders.sql | Tests: 32/32 passed | KPI restored: anomaly ratio 0.93x (target ~1.0x) | Fix branch: blackbox/fix-inc_ee7f7471fb @ 018ef58113. remediation note appended to dataset docs; tagged blackbox-remediated",
+      "detail": "Incident RESOLVED (FIXED) in DataHub — Repair verified by BlackBox. | Patch: pipeline/transforms/stg_orders.sql | Tests: 32/32 passed | KPI restored: anomaly ratio 0.93x (target ~1.0x) | Fix branch: blackbox/fix-inc_686e61287f @ ca08219136. remediation note appended to dataset docs; tagged blackbox-remediated",
       "data": {
-        "incident_urn": "urn:li:incident:f01e4f38-bf1e-43c7-8369-e18af7fa14af",
+        "incident_urn": "urn:li:incident:2be8b44e-0a5a-4fbb-8ac9-391e2591d550",
         "status": "complete",
-        "detail": "Incident RESOLVED (FIXED) in DataHub — Repair verified by BlackBox. | Patch: pipeline/transforms/stg_orders.sql | Tests: 32/32 passed | KPI restored: anomaly ratio 0.93x (target ~1.0x) | Fix branch: blackbox/fix-inc_ee7f7471fb @ 018ef58113. remediation note appended to dataset docs; tagged blackbox-remediated"
+        "detail": "Incident RESOLVED (FIXED) in DataHub — Repair verified by BlackBox. | Patch: pipeline/transforms/stg_orders.sql | Tests: 32/32 passed | KPI restored: anomaly ratio 0.93x (target ~1.0x) | Fix branch: blackbox/fix-inc_686e61287f @ ca08219136. remediation note appended to dataset docs; tagged blackbox-remediated"
       },
       "source": "datahub",
       "transport": null
     },
     {
-      "id": "ev_20e5f9806d",
-      "ts": "2026-08-10T09:20:44.784416+00:00",
+      "id": "ev_a47d2a5c59",
+      "ts": "2026-08-10T15:31:39.793184+00:00",
       "kind": "baseline_comparison",
       "title": "Baseline comparison (last 6 days)",
       "detail": "days over 1.5x baseline: none",
@@ -2140,8 +2530,8 @@
   ],
   "patch": {
     "file": "pipeline/transforms/stg_orders.sql",
-    "diff": "--- a/pipeline/transforms/stg_orders.sql\n+++ b/pipeline/transforms/stg_orders.sql\n@@ -1,5 +1,14 @@\n -- stg_orders: cleaned order stream.\n -- Excludes cancelled and refunded orders from the revenue path.\n+--\n+-- UNIT NORMALIZATION (incident 2026-08-07, cloudpay_v2 cutover):\n+-- The raw.raw_orders.amount contract (v1.3) requires MAJOR currency units as a\n+-- decimal (e.g. 49.99 = $49.99). The cloudpay_v2 provider, rolled out on\n+-- 2026-08-07, instead emits MINOR units (integer cents), which inflated all\n+-- downstream revenue/AOV by exactly 100x. We normalize that provider's cohort\n+-- back to major units here, at the ingestion-contract boundary. The rescale is\n+-- scoped strictly to payment_processor = 'cloudpay_v2'; legacy_pos and\n+-- shopgate feeds are already contract-compliant and pass through unchanged.\n CREATE OR REPLACE TABLE staging.stg_orders AS\n SELECT\n     order_id,\n@@ -7,7 +16,11 @@\n     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n     customer_id,\n     currency,\n-    CAST(amount AS DOUBLE) AS amount,\n+    CASE\n+        WHEN payment_processor = 'cloudpay_v2'\n+            THEN CAST(amount AS DOUBLE) / 100.0\n+        ELSE CAST(amount AS DOUBLE)\n+    END AS amount,\n     payment_processor,\n     status\n FROM raw.raw_orders\n",
-    "reasoning": "Root cause is that the cloudpay_v2 provider (cut over 2026-08-07) emits raw.raw_orders.amount in minor units (integer cents), violating the documented contract \"Order amount in MAJOR currency units as a decimal ... two decimal places\" [ev_b3a432a9b9]. stg_orders is the ingestion-contract boundary the data team owns, and today it only CASTs amount without normalizing units [ev_48dcf900b0]. The fix normalizes minor units to major units by dividing by 100, scoped strictly to payment_processor = 'cloudpay_v2' so legacy_pos and shopgate history (which carries genuine two-decimal major units) is bit-for-bit untouched [ev_1384d1d5d5]. No rows are dropped or hidden; only the defective cohort's scale is corrected, which reproduces the committed baseline to the cent [ev_082bf199fc].",
+    "diff": "--- a/pipeline/transforms/stg_orders.sql\n+++ b/pipeline/transforms/stg_orders.sql\n@@ -1,5 +1,14 @@\n -- stg_orders: cleaned order stream.\n -- Excludes cancelled and refunded orders from the revenue path.\n+--\n+-- UNIT NORMALIZATION (incident fix, onset 2026-08-07):\n+-- raw.raw_orders.amount is contractually MAJOR currency units as a decimal\n+-- (contract v1.3, e.g. 49.99 = $49.99). The cloudpay_v2 provider, rolled out\n+-- in early August 2026, emits MINOR units (integer cents) instead, which is a\n+-- semantic contract violation that still validates as DOUBLE. raw is an\n+-- immutable vendor landing table, so staging is the documented normalization\n+-- boundary: we rescale the cloudpay_v2 cohort by 1/100 and leave every other\n+-- processor untouched. Remove this branch once the provider ships major units.\n CREATE OR REPLACE TABLE staging.stg_orders AS\n SELECT\n     order_id,\n@@ -7,7 +16,11 @@\n     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n     customer_id,\n     currency,\n-    CAST(amount AS DOUBLE) AS amount,\n+    CASE\n+        WHEN payment_processor = 'cloudpay_v2'\n+            THEN CAST(amount AS DOUBLE) / 100.0\n+        ELSE CAST(amount AS DOUBLE)\n+    END AS amount,\n     payment_processor,\n     status\n FROM raw.raw_orders\n",
+    "reasoning": "Root cause is that raw.raw_orders.amount arrives in MINOR currency units (cents) for the cloudpay_v2 provider from 2026-08-07, violating contract v1.3 (\"major currency units as a decimal\"), while stg_orders did a bare CAST(amount AS DOUBLE) pass-through [ev_fe9d187603]. raw is an immutable vendor landing table, so the fix belongs at the staging normalization boundary. The repair divides amount by 100.0 strictly for payment_processor = 'cloudpay_v2' — the exact defective cohort (100% integer-valued minor units, ~100x scale [ev_bdd675446a, ev_bebe4ecbd0]) — leaving legacy_pos and shopgate history byte-identical. No rows are filtered or deleted; only the unit is corrected, and the currency/status/order semantics are unchanged.",
     "status": "verified"
   },
   "tests_before": {
@@ -3104,35 +3494,34 @@
     ]
   },
   "root_cause": {
-    "summary": "The new cloudpay_v2 payment provider, cut over on 2026-08-07, reports raw.raw_orders.amount in minor units (cents) instead of the contracted major currency units — silently multiplying executive revenue by exactly 100x.",
+    "summary": "The new cloudpay_v2 payment provider went live on 2026-08-07 emitting raw.raw_orders.amount in cents instead of dollars, breaking contract v1.3 — and because it replaced 100% of order volume overnight, executive revenue inflated by exactly 100.0x.",
     "asset_urn": "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)",
     "field": "amount",
-    "detail": "SYMPTOM: marts.exec_revenue_metric.revenue = 2,737,323.50 for kpi_day 2026-08-09 vs expected 29,349.39 (anomaly_ratio 93.3). Baseline comparison shows a step change with onset exactly 2026-08-07: revenue_ratio 100.0 / 100.0 / 99.99 on 08-07, 08-08, 08-09, while 07-31..08-06 sit at ratio 1.0 [ev_99f62985f4, ev_ac73812134].\n\nNOT A VOLUME EVENT: order_count is identical to baseline on all three affected days (334/349/327 vs 334/349/327). The entire distortion is per-order: aov_median_usd inflated 100x (6483.50 vs 64.84; 5972.00 vs 59.72; 6213.00 vs 62.13) [ev_99f62985f4].\n\nLINEAGE: DataHub column-level lineage gives a single path raw.raw_orders.amount -> staging.stg_orders.amount -> marts.fct_revenue.revenue_usd -> marts.exec_revenue_metric.revenue, with the only other contributing branch being stg_fx_rates.usd_rate [ev_8659030b83].\n\nFX BRANCH ELIMINATED: usd_rate is stable and in-range across the onset window (CAD 0.717928-0.719844, EUR 1.070478-1.079818, GBP 1.26956-1.27464) — no 100x scaling [ev_66422a90c1].\n\nTRANSFORMS ELIMINATED AS ORIGIN: stg_orders.sql merely CASTs amount to DOUBLE and filters cancelled/refunded [ev_07ca87974f]; fct_revenue.sql only computes SUM/AVG/MEDIAN of amount * usd_rate [ev_143dc8d308]. Neither contains a scaling factor, so the 100x is already present in the raw feed.\n\nORIGIN ISOLATED BY COHORT: profiling raw.raw_orders.amount segmented by payment_processor shows a complete provider cutover on 2026-08-07. Through 08-06, orders come from legacy_pos and shopgate with mean ~79-86 and median ~60-70. From 08-07 onward, 100% of orders come from a new processor cloudpay_v2 with mean 7873-8239, median 5955-6374, max up to 55262 [ev_46ed4fc52d]. Every single cloudpay_v2 row is integer-valued (334/334, 349/349, 327/327) whereas legacy rows carry two decimals [ev_2a0e1a6df2] — the signature of integer minor units.\n\nCONTRACT VIOLATION: DataHub documents raw.raw_orders.amount as \"Order amount in MAJOR currency units as a decimal (e.g. 49.99 = $49.99). Contract v1.3: two decimal places\", and documents cloudpay_v2 as a \"new provider being rolled out in early August 2026\". The rollout itself is expected; emitting cents is the defect [ev_b3a432a9b9].\n\nNECESSARY AND SUFFICIENT: rescaling only the cloudpay_v2 cohort by 1/100 reproduces the committed baseline exactly — 26,557.18 / 27,383.61 / 27,373.23 revenue and 64.84 / 59.72 / 62.13 median AOV, matching baseline to the cent [ev_082bf199fc]. The invariant suite fails 7/32 tests, all downstream expressions of this one defect (max usd amount 55262, AOV median out of [30,250], revenue continuity 80-82x) [ev_c422535786].\n\nREPAIR LAYER: normalize the cloudpay_v2 minor-unit cohort to major units in staging.stg_orders (the ingestion-contract boundary the data team owns), scoped strictly to payment_processor = 'cloudpay_v2' so healthy legacy_pos/shopgate history is untouched.",
+    "detail": "SYMPTOM: marts.exec_revenue_metric.revenue jumped from ~$27-35k/day to ~$2.74M/day starting 2026-08-07 (anomaly_ratio 93.3). compare_to_baseline shows revenue_ratio = 100.0 and aov_ratio = 100.0 for 2026-08-07/08/09 while order_count is IDENTICAL to baseline (334/349/327). A pure price-scale defect, not a volume event [ev_c48d8d926b, ev_d9f465ed82].\n\nLINEAGE (DataHub, UPSTREAM from the KPI): marts.exec_revenue_metric.revenue <- marts.fct_revenue.revenue_usd <- {staging.stg_orders.amount, staging.stg_fx_rates.usd_rate} <- {raw.raw_orders.amount, raw.raw_fx_rates.usd_rate} [ev_521cefd14c]. Both revenue-bearing branches were tested.\n\nFX BRANCH ELIMINATED: usd_rate is byte-identical across the onset boundary (EUR 1.070478, GBP 1.270418, CAD 0.718958, USD 1.0 on healthy 2026-08-06 and on all three anomalous days). No scaling, no inversion; USD orders at rate 1.0 are inflated too, which FX cannot cause [ev_e8b3f5df66].\n\nQUANTITATIVE PROOF ON THE BLAMED ASSET raw.raw_orders.amount: profiling the RAW column segmented by payment_processor shows the defect is already fully present before any transformation. Through 2026-08-06 raw amounts come from legacy_pos + shopgate with median 61.66 / 66.97 and mean ~$79-86. From 2026-08-07 onward 100% of raw volume is a single new provider, cloudpay_v2, with median 6373.5 / 5955.5 / 6076.0 and mean $7,873 / $7,781 / $8,239 — a ~100x step in the raw feed itself, min value 562 (= $5.62), null_rate 0.0 [ev_bebe4ecbd0]. The same 100x step is visible downstream in staging.stg_orders.amount [ev_41d5fe247d], confirming pure propagation.\n\nTHE CENTS FINGERPRINT: cloudpay_v2 raw amounts are 100.00% integer-valued (1062/1062 rows; 356/356, 364/364, 342/342 per day), whereas legacy_pos and shopgate are only 1.18% and 1.08% integer-valued across 23,470 and 9,941 rows. Integer-only values at exactly 100x scale is the signature of minor-unit (cent) encoding [ev_bdd675446a, ev_b15b1ef046].\n\nCONTRACT VIOLATION: DataHub documents raw_orders.amount as \"Order amount in MAJOR currency units as a decimal (e.g. 49.99 = $49.99). Contract v1.3: two decimal places, as reported by the capturing payment processor,\" and documents payment_processor value cloudpay_v2 as a \"new provider being rolled out in early August 2026 per the payments-platform runbook\" [ev_f0ba66acd6]. cloudpay_v2 ships integer minor units, violating v1.3. This is a semantic failure: the type still validates as DOUBLE, but the unit is wrong.\n\nNECESSARY AND SUFFICIENT: cloudpay_v2 first appears 2026-08-07 and legacy processors stop 2026-08-06 [ev_b15b1ef046], so the affected cohort share goes 0% -> 100% in a single day. A 100x unit error applied to 100% of orders yields exactly 100.0x revenue and 100.0x median AOV with order_count untouched — matching the observed onset date, magnitude and shape precisely. Invariants failing are exactly the value-scale ones (max_usd_amount_sane, aov_median_in_range, revenue_continuity for 08-07..08-09); no uniqueness/null/join invariants fail [ev_bce22ad7e1].\n\nMOST UPSTREAM ORIGIN: staging.stg_orders is NOT the origin — stg_orders.sql performs a bare `CAST(amount AS DOUBLE)` pass-through with no unit normalization, faithfully propagating the raw values [ev_fe9d187603]. The defect enters the pipeline at raw.raw_orders.amount for rows where payment_processor = 'cloudpay_v2'. Since raw is an immutable vendor landing table, the correct repair layer is stg_orders (the documented normalization boundary): divide amount by 100 scoped strictly to the cloudpay_v2 cohort, leaving all healthy history untouched and deleting no data.",
     "evidence_ids": [
-      "ev_ac73812134",
-      "ev_99f62985f4",
-      "ev_8659030b83",
-      "ev_46ed4fc52d",
-      "ev_2a0e1a6df2",
-      "ev_b3a432a9b9",
-      "ev_66422a90c1",
-      "ev_07ca87974f",
-      "ev_143dc8d308",
-      "ev_082bf199fc",
-      "ev_c422535786"
+      "ev_521cefd14c",
+      "ev_f0ba66acd6",
+      "ev_bebe4ecbd0",
+      "ev_c48d8d926b",
+      "ev_41d5fe247d",
+      "ev_bdd675446a",
+      "ev_b15b1ef046",
+      "ev_e8b3f5df66",
+      "ev_fe9d187603",
+      "ev_bce22ad7e1"
     ]
   },
   "writeback": {
-    "incident_urn": "urn:li:incident:f01e4f38-bf1e-43c7-8369-e18af7fa14af",
+    "incident_urn": "urn:li:incident:2be8b44e-0a5a-4fbb-8ac9-391e2591d550",
     "status": "complete",
-    "detail": "Incident RESOLVED (FIXED) in DataHub — Repair verified by BlackBox. | Patch: pipeline/transforms/stg_orders.sql | Tests: 32/32 passed | KPI restored: anomaly ratio 0.93x (target ~1.0x) | Fix branch: blackbox/fix-inc_ee7f7471fb @ 018ef58113. remediation note appended to dataset docs; tagged blackbox-remediated"
+    "detail": "Incident RESOLVED (FIXED) in DataHub — Repair verified by BlackBox. | Patch: pipeline/transforms/stg_orders.sql | Tests: 32/32 passed | KPI restored: anomaly ratio 0.93x (target ~1.0x) | Fix branch: blackbox/fix-inc_686e61287f @ ca08219136. remediation note appended to dataset docs; tagged blackbox-remediated"
   },
   "git_artifact": {
-    "branch": "blackbox/fix-inc_ee7f7471fb",
-    "commit": "018ef581131a1681f9c205efead5d4acbbd83689",
-    "diff_stat": "018ef58 fix: The new cloudpay_v2 payment provider, cut over on 2026-08-07, reports\n pipeline/transforms/stg_orders.sql | 15 ++++++++++++++-\n 1 file changed, 14 insertions(+), 1 deletion(-)",
+    "branch": "blackbox/fix-inc_686e61287f",
+    "commit": "ca082191368f47bb7ea879e664b2d19f387a3c98",
+    "diff_stat": "ca08219 fix: The new cloudpay_v2 payment provider went live on 2026-08-07 emitting\n pipeline/transforms/stg_orders.sql | 15 ++++++++++++++-\n 1 file changed, 14 insertions(+), 1 deletion(-)",
     "pr_url": null
   },
-  "final_summary": "INCIDENT RESOLVED — 100x revenue inflation from cloudpay_v2 minor-unit amounts.\n\nSYMPTOM\nmarts.exec_revenue_metric.revenue read 2,737,323.50 for kpi_day 2026-08-09 vs an expected 29,349.39 (anomaly ratio 93.3x). Baseline comparison showed a clean step change with onset exactly 2026-08-07: revenue_ratio 100.0 / 100.0 / 99.99 on 08-07/08/09 while 07-31..08-06 sat at 1.0 [ev_99f62985f4, ev_ac73812134]. Not a volume event — order_count matched baseline exactly on all three days (334/349/327); the entire distortion was per-order, with aov_median_usd inflated 100x (6483.50 vs 64.84, 5972.00 vs 59.72, 6213.00 vs 62.13) [ev_99f62985f4].\n\nLINEAGE PATH\nDataHub column-level lineage yielded a single contributing path: raw.raw_orders.amount → staging.stg_orders.amount → marts.fct_revenue.revenue_usd → marts.exec_revenue_metric.revenue, with stg_fx_rates.usd_rate as the only other branch [ev_8659030b83]. The FX branch was eliminated: usd_rate stayed stable and in-range across the onset window (CAD 0.7179–0.7198, EUR 1.0705–1.0798, GBP 1.2696–1.2746) — no 100x scaling [ev_66422a90c1]. The transforms were eliminated as the origin: stg_orders.sql only CAST amount to DOUBLE and filtered cancelled/refunded [ev_07ca87974f, ev_48dcf900b0]; fct_revenue.sql only aggregated amount * usd_rate [ev_143dc8d308]. The 100x therefore already existed in the raw feed.\n\nROOT CAUSE (origin isolated by cohort)\nProfiling raw.raw_orders.amount segmented by payment_processor showed a complete provider cutover on 2026-08-07: through 08-06 all orders came from legacy_pos and shopgate (mean ~79–86, median ~60–70); from 08-07 onward 100% came from a new processor, cloudpay_v2, with mean 7873–8239, median 5955–6374, max 55262 [ev_46ed4fc52d]. Every cloudpay_v2 row is integer-valued — 1062/1062, first_day 2026-08-07, last_day 2026-08-09 — while legacy rows carry two decimals [ev_2a0e1a6df2, ev_1384d1d5d5]: the signature of integer minor units. DataHub documents the field as \"Order amount in MAJOR currency units as a decimal (e.g. 49.99 = $49.99). Contract v1.3: two decimal places\" and documents cloudpay_v2 as a provider being rolled out in early August 2026 — the rollout is expected, emitting cents is the defect [ev_b3a432a9b9]. Necessary and sufficient: rescaling only the cloudpay_v2 cohort by 1/100 reproduced the committed baseline to the cent [ev_082bf199fc]; pre-repair the invariant suite failed 7/32, all downstream expressions of this one defect [ev_c422535786].\n\nREPAIR\npipeline/transforms/stg_orders.sql — normalized the minor-unit cohort to major units at the ingestion-contract boundary the data team owns, via CASE WHEN payment_processor = 'cloudpay_v2' THEN CAST(amount AS DOUBLE)/100.0 ELSE CAST(amount AS DOUBLE) END, with a comment documenting the contract and incident. Scoped strictly to the defective provider so legacy_pos/shopgate history is untouched; no rows dropped, filtered, or hidden (14 insertions, 1 deletion).\n\nVERIFICATION\nWarehouse rebuilt: full invariant suite 32/32 passed (was 25/32), KPI anomaly ratio 0.9327 vs the prior 93.3x. Post-repair baseline comparison shows revenue_ratio and aov_ratio of exactly 1.0 for 08-07/08/09 (26,557.18 / 27,383.61 / 27,373.23 revenue; 64.84 / 59.72 / 62.13 median AOV) with order_count unchanged, and healthy history 08-04..08-06 also still at ratio 1.0 [ev_20e5f9806d]. Shipped on branch blackbox/fix-inc_ee7f7471fb @ 018ef58113; DataHub incident marked RESOLVED (FIXED).\n\nFOLLOW-UP FOR OWNERS: the durable fix belongs with the cloudpay_v2 integration — have the provider emit major units per contract v1.3, and add an ingestion assertion on amount decimal precision per payment_processor so a future provider cutover fails loudly instead of silently multiplying revenue.",
+  "final_summary": "INCIDENT RESOLVED — cloudpay_v2 cent/dollar unit violation (100.0x revenue inflation)\n\nSYMPTOM\nmarts.exec_revenue_metric.revenue jumped from ~$27–35k/day to ~$2.74M/day starting 2026-08-07 (anomaly_ratio 93.3). compare_to_baseline showed revenue_ratio = 100.0 and aov_ratio = 100.0 for 2026-08-07/08/09 while order_count was IDENTICAL to baseline (334/349/327) — a pure price-scale defect, not a volume event [ev_c48d8d926b, ev_d9f465ed82].\n\nLINEAGE (DataHub, UPSTREAM from the KPI)\nmarts.exec_revenue_metric.revenue <- marts.fct_revenue.revenue_usd <- {staging.stg_orders.amount, staging.stg_fx_rates.usd_rate} <- {raw.raw_orders.amount, raw.raw_fx_rates.usd_rate} [ev_521cefd14c]. Both revenue-bearing branches were tested.\n\nEVIDENCE\n• FX branch eliminated: usd_rate byte-identical across the onset boundary (EUR 1.070478, GBP 1.270418, CAD 0.718958, USD 1.0) on healthy 2026-08-06 and all three anomalous days; USD orders at rate 1.0 were inflated too, which FX cannot cause [ev_e8b3f5df66].\n• Defect present in RAW: raw.raw_orders.amount segmented by payment_processor — through 2026-08-06 legacy_pos + shopgate, median 61.66/66.97, mean ~$79–86; from 2026-08-07 onward 100% of volume is cloudpay_v2 with median 6373.5/5955.5/6076.0 and mean $7,873/$7,781/$8,239, min 562, null_rate 0.0 [ev_bebe4ecbd0]. Same 100x step propagates to staging.stg_orders.amount [ev_41d5fe247d].\n• Cents fingerprint: cloudpay_v2 amounts are 100.00% integer-valued (1062/1062 rows) vs 1.18% / 1.08% for legacy_pos / shopgate [ev_bdd675446a, ev_b15b1ef046].\n• Contract violation: DataHub documents raw_orders.amount as \"Order amount in MAJOR currency units as a decimal … Contract v1.3\" and cloudpay_v2 as a new provider rolled out early August 2026 [ev_f0ba66acd6]. Semantic failure — type still validates as DOUBLE, unit is wrong.\n• Necessary & sufficient: cohort share goes 0% -> 100% in one day, so a 100x unit error yields exactly 100.0x revenue and 100.0x median AOV with order_count untouched. Failing invariants were exactly the value-scale ones [ev_bce22ad7e1].\n\nROOT CAUSE\nraw.raw_orders.amount for payment_processor = 'cloudpay_v2' (urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)) — minor units (integer cents) emitted instead of major units from 2026-08-07. stg_orders was NOT the origin: it did a bare CAST(amount AS DOUBLE) pass-through with no unit normalization [ev_fe9d187603, ev_0fcbed02d4].\n\nREPAIR\nraw is an immutable vendor landing table, so the fix was placed at the documented normalization boundary, pipeline/transforms/stg_orders.sql: amount is divided by 100.0 in a CASE scoped strictly to payment_processor = 'cloudpay_v2', with a comment explaining the contract violation and when to remove the branch. Legacy history is byte-identical, no rows filtered, no data deleted, downstream fct_revenue/exec_revenue_metric untouched.\n\nVERIFICATION\nWarehouse rebuilt; full invariant suite 32/32 passed, 0 failures (previously failing max_usd_amount_sane, aov_median_in_range, revenue_continuity now pass). KPI anomaly_ratio restored to 0.9327 (from 93.3). Post-repair compare_to_baseline shows revenue_ratio = 1.0 and aov_ratio = 1.0 with unchanged order_count for 2026-08-07 ($26,557.18/334), 08-08 ($27,383.61/349) and 08-09 ($27,373.23/327), and pre-onset days 08-04..08-06 unchanged at ratio 1.0 [ev_a47d2a5c59]. Committed on branch blackbox/fix-inc_686e61287f @ ca08219; DataHub incident marked RESOLVED (FIXED).\n\nFOLLOW-UP\nPayments-platform team should have cloudpay_v2 emit major units per contract v1.3; once shipped, delete the CASE branch in stg_orders and add a raw-layer contract test asserting per-processor integer-value rate to catch minor-unit regressions at landing rather than at the executive KPI.",
   "error": null
 }
