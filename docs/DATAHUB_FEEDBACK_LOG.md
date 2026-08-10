@@ -3,6 +3,11 @@
 Kept for (a) the hackathon feedback survey, (b) candidate open-source contributions.
 Everything below was actually hit on 2026-08-09 building BlackBox on macOS arm64 + colima.
 
+> **Contributed upstream:** finding #1 is now a docs PR to DataHub OSS —
+> [datahub-project/datahub#19046](https://github.com/datahub-project/datahub/pull/19046)
+> (troubleshooting entry for the silent quickstart hang under Colima / Rancher Desktop / Podman,
+> with the diagnosis and the `DOCKER_HOST` export for each runtime).
+
 ## 1. Quickstart hangs silently with colima (docker contexts ignored) — HIGH VALUE
 `datahub docker quickstart` uses docker-py's `docker.from_env()`, which honors `DOCKER_HOST`
 but NOT docker CLI contexts. With colima (docker context = colima, no DOCKER_HOST), the CLI

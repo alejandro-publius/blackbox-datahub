@@ -14,17 +14,14 @@ The worst data incidents don't crash anything. An upstream provider quietly chan
 
 A human reports a symptom ("Revenue just jumped ~100×. Is this real?"). BlackBox then autonomously:
 
-1. **Finds the affected asset** in DataHub (search via the official **DataHub MCP Server**) and reads its context: descriptions, ownership, and the **data contract in schema field docs**.
-2. **Walks upstream lineage** — table-level *and column-level* — from the corrupted KPI. The lineage graph in DataHub is the map; the agent never guesses topology.
-3. **Quantifies the symptom** against committed healthy baselines (onset date, magnitude) and **forms hypotheses** covering every upstream branch.
-4. **Collects real evidence** with deterministic tools — per-day/per-segment distribution profiling, read-only SQL, invariant runs — and **eliminates distractors quantitatively** (e.g. a stale FX feed that looks suspicious but is orders of magnitude too small).
-5. **Proves the root cause.** `confirm_root_cause` is machine-validated: it is *rejected* unless the agent cites DataHub lineage evidence **and** quantitative evidence naming the blamed field. No vibes-based conclusions.
-6. **Raises a real ACTIVE incident in DataHub** on the affected assets the moment the cause is proven.
-7. **Repairs the pipeline**: proposes new transform SQL, the system computes the real diff, applies it, **rebuilds the warehouse and runs all 32 invariants + KPI recomputation**. A fix that restores the top-line while breaking history is rejected; the agent iterates.
-8. **Commits the verified fix** on a `blackbox/fix-*` branch (isolated git worktree) — a PR-ready artifact.
-9. **Resolves the DataHub incident** (`RESOLVED / FIXED` with the full remediation record), appends an incident-history note to the dataset docs, and tags it — durable institutional memory in the catalog.
+1. **Maps the blast radius** — finds the affected KPI via the official **DataHub MCP Server**, reads its data contract and ownership, and walks upstream lineage (table *and* column level). DataHub's graph is the map; the agent never guesses topology.
+2. **Proves the root cause** — quantifies the symptom against committed baselines, forms hypotheses across every upstream branch, and eliminates them with real profiling and SQL. `confirm_root_cause` is machine-validated: *rejected* unless the agent cites DataHub lineage evidence **and** quantitative evidence naming the blamed field. No vibes-based conclusions.
+3. **Repairs and verifies** — writes new transform SQL, the system computes the real diff, applies it, **rebuilds the warehouse and runs all 32 invariants + KPI recomputation**. A fix that restores the top-line while corrupting history is rejected and the agent iterates. The verified fix lands on a `blackbox/fix-*` branch.
+4. **Writes the incident back to DataHub** — raised ACTIVE at confirmation, then `RESOLVED / FIXED` with the remediation record, an incident-history note on the dataset docs, and a tag. Institutional memory that outlives the incident.
 
 In real runs: **KPI 93.3× → 0.93×, 32/32 invariants green, incident RESOLVED in DataHub.** Inspect an actual run without installing anything: [`examples/sample-incident/`](examples/sample-incident/).
+
+![Root cause confirmed](docs/screenshots/03-rootcause.png)
 
 ## Detect → investigate → evidence → root cause → repair → execute → verify → artifact → writeback
 
@@ -69,6 +66,8 @@ Topology, data contracts, and the writeback target all live in DataHub. The `BLA
 | Dataset docs + tags | durable remediation note + `blackbox-remediated` tag | `writeback.py` |
 | DataHub Skills | development workflow (skills registry plugin) | dev environment |
 
+**Contributed back:** building this surfaced a silent `datahub docker quickstart` hang under Colima/Rancher Desktop/Podman (docker-py reads `DOCKER_HOST` but not Docker CLI contexts). Filed upstream as a troubleshooting-docs PR: [datahub-project/datahub#19046](https://github.com/datahub-project/datahub/pull/19046). Full friction log: [`docs/DATAHUB_FEEDBACK_LOG.md`](docs/DATAHUB_FEEDBACK_LOG.md).
+
 ## Architecture
 
 Full design — state machine, evidence gating, repair verification loop — in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
@@ -86,6 +85,18 @@ Next.js command center ── SSE ── FastAPI ── Investigator (Claude, to
 
 - **Synthetic (disclosed):** the retail pipeline's source data is generated deterministically (`pipeline/generate_sources.py`, seed 42), including the seeded incident — a payment-provider migration that silently switches `raw_orders.amount` from dollars to integer cents on 2026-08-07 — and a stale-FX distractor. `make demo-reset` restores this exact broken state.
 - **Real:** the DuckDB warehouse and SQL transforms execute; DataHub OSS v1.7.0 runs locally with genuinely ingested metadata; the agent's every fact comes from live tool calls; the diff, tests, KPI recomputation, git branch, and DataHub incident are all real. Nothing in prompts or metadata names the incident's nature — the agent discovers it from evidence (see `CLAUDE.md`, "No incident leakage").
+
+## What it would take to point this at a real stack
+
+The demo runs on DuckDB because it has to be reproducible on a judge's laptop in one command. The engine is deliberately separated from it — three seams, no rewrite:
+
+| Seam | Demo implementation | Production swap |
+|---|---|---|
+| Profiling + query execution (`backend/blackbox/warehouse.py`) | DuckDB over local CSVs | Snowflake/BigQuery/Databricks connector — same `profile_column` / `compare_to_baseline` / `run_sql` signatures |
+| Verification (`repair.verify_repair`) | rebuild warehouse + 32 pytest invariants | `dbt build --select state:modified+` + `dbt test` in a CI branch or Snowflake zero-copy clone |
+| Repair surface (`repair._resolve_transform`) | `pipeline/transforms/*.sql` | dbt models directory, with the existing git-worktree branch flow opening a PR |
+
+DataHub, the agent loop, the evidence gates, and the incident writeback are unchanged by those swaps — they already speak the metadata layer a real platform team runs on. What stays honest: we demonstrate on a pipeline we authored, so treat the *incident realism* as illustrative and the *machinery* as the contribution.
 
 ## Evals
 

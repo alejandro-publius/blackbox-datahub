@@ -50,6 +50,10 @@ Demo result: revenue 93.3× → 0.93×, 32/32 invariants green, real incident ur
 
 Metadata is what turns an LLM from a guesser into an investigator: the data contract ("amount is major currency units") plus column lineage is exactly the context that makes a semantic failure *provable*. And native OSS incident entities make DataHub a natural system of record for agent work.
 
+## Contributing back
+
+Building on DataHub OSS surfaced a real papercut: `datahub docker quickstart` hangs silently at "Starting up DataHub..." on Colima, Rancher Desktop, and Podman, because docker-py reads `DOCKER_HOST` but not Docker CLI contexts — no error, no images pulled, while `docker ps` works fine in the same shell. We filed a troubleshooting-docs PR upstream with the diagnosis and the per-runtime fix: [datahub-project/datahub#19046](https://github.com/datahub-project/datahub/pull/19046). Our full friction log (stale auth defaults, the removed `:head` tag, the one-hour default PAT duration, MCP mutation ambiguity for OSS) is in `docs/DATAHUB_FEEDBACK_LOG.md`.
+
 ## What's next
 
 Real warehouse connectors (Snowflake/BigQuery), dbt-aware repairs as PRs, assertion emission so BlackBox's invariants live in DataHub itself, and multi-incident triage.

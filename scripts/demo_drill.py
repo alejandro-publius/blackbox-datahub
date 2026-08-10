@@ -33,6 +33,30 @@ def shoot(page, name: str) -> None:
     print(f"  📸 {name}")
 
 
+RAW_ORDERS_URN = "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)"
+
+
+def datahub_login(browser):
+    """Log into the local DataHub UI and dismiss the first-run product tour."""
+    dh = browser.new_page(viewport={"width": 1680, "height": 1000}, device_scale_factor=2)
+    dh.goto(f"{DATAHUB}/login", wait_until="networkidle", timeout=30000)
+    dh.fill('input[name="username"], input[type="text"]', "datahub")
+    dh.fill('input[type="password"]', "datahub")
+    dh.keyboard.press("Enter")
+    dh.wait_for_timeout(4000)
+    return dh
+
+
+def dismiss_tour(dh) -> None:
+    for sel in ['button[aria-label="Close"]', ".ant-modal-close", 'button:has-text("Skip")']:
+        try:
+            dh.locator(sel).first.click(timeout=2000)
+            break
+        except Exception:
+            continue
+    dh.wait_for_timeout(600)
+
+
 def click_button(page, patterns: list[str], timeout: int = 15000) -> None:
     for pat in patterns:
         loc = page.get_by_role("button", name=re.compile(pat, re.I)).first
@@ -94,6 +118,26 @@ def main() -> int:
             page.wait_for_timeout(1000)
             shoot(page, "03-rootcause.png")
 
+            # The DataHub incident is raised ACTIVE the moment the cause is proven —
+            # capture it here, because after the repair it flips to RESOLVED and the
+            # Incidents tab (which lists ACTIVE only) would look empty.
+            try:
+                dh = datahub_login(browser)
+                dh.goto(
+                    f"{DATAHUB}/dataset/{RAW_ORDERS_URN}/Incidents",
+                    wait_until="networkidle", timeout=30000,
+                )
+                dh.wait_for_timeout(2500)
+                dismiss_tour(dh)
+                dh.wait_for_timeout(1200)
+                if not re.search(r"BlackBox", dh.inner_text("body"), re.I):
+                    failures.append("DataHub Incidents tab shows no BlackBox incident while ACTIVE")
+                dh.screenshot(path=str(SHOTS / "05-datahub-incident.png"))
+                print("  📸 05-datahub-incident.png (ACTIVE)")
+                dh.close()
+            except Exception as e:
+                failures.append(f"datahub ACTIVE incident capture failed: {e}")
+
         print("ACT 4 — repair & verify")
         # Two Repair buttons exist: the top-bar one is BEHIND the overlay backdrop
         # (pointer events blocked → click times out); the overlay card's own CTA is
@@ -118,26 +162,29 @@ def main() -> int:
                 failures.append(f"resolution screen missing {expected!r}")
         shoot(page, "04-resolved.png")
 
-        print("ACT 5 — DataHub shows the durable incident")
-        dh = browser.new_page(viewport={"width": 1680, "height": 1000}, device_scale_factor=2)
+        print("ACT 5 — DataHub carries the durable remediation record")
         try:
-            dh.goto(f"{DATAHUB}/login", wait_until="networkidle", timeout=30000)
-            dh.fill('input[name="username"], input[type="text"]', "datahub")
-            dh.fill('input[name="password"], input[type="password"]', "datahub")
-            dh.keyboard.press("Enter")
-            dh.wait_for_timeout(4000)
+            dh = datahub_login(browser)
             dh.goto(
-                f"{DATAHUB}/dataset/urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)/Incidents",
-                wait_until="networkidle",
-                timeout=30000,
+                f"{DATAHUB}/dataset/{RAW_ORDERS_URN}/Documentation",
+                wait_until="networkidle", timeout=30000,
             )
             dh.wait_for_timeout(2500)
-            dh.screenshot(path=str(SHOTS / "05-datahub-incident.png"))
-            print("  📸 05-datahub-incident.png")
-        except Exception as e:
-            failures.append(f"datahub ui capture failed: {e}")
-        finally:
+            dismiss_tour(dh)
+            try:  # expand the truncated docs so the incident-history note is visible
+                dh.get_by_text(re.compile(r"show more", re.I)).first.click(timeout=3000)
+                dh.wait_for_timeout(800)
+            except Exception:
+                pass
+            body = dh.inner_text("body")
+            for expected in [r"Incident history", r"blackbox|BlackBox"]:
+                if not re.search(expected, body, re.I):
+                    failures.append(f"DataHub docs missing remediation note ({expected})")
+            dh.screenshot(path=str(SHOTS / "05b-datahub-remediation.png"))
+            print("  📸 05b-datahub-remediation.png (RESOLVED + note)")
             dh.close()
+        except Exception as e:
+            failures.append(f"datahub remediation capture failed: {e}")
 
         print("ACT 6 — reset returns to broken state")
         click_button(page, [r"reset"])

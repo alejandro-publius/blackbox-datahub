@@ -249,12 +249,41 @@ def _column_lineage_for(downstream_urn: str) -> dict[str, list[dict[str, str]]]:
     return out
 
 
+def _mcp_hop(urn: str, direction: str) -> list[dict[str, Any]] | None:
+    """One lineage hop via the official DataHub MCP Server. Returns None if the
+    MCP server is unavailable so the caller can fall back to GraphQL."""
+    try:
+        from .mcp_bridge import bridge
+
+        if not bridge.available:
+            return None
+        res = bridge.call_tool(
+            "get_lineage", {"urn": urn, "upstream": direction == "UPSTREAM"}
+        )
+        if not isinstance(res, dict):
+            return None
+        block = res.get("upstreams" if direction == "UPSTREAM" else "downstreams") or {}
+        results = block.get("searchResults") or block.get("results") or []
+        out = []
+        for r in results:
+            ent = r.get("entity") or r
+            u = ent.get("urn")
+            if not u or not u.startswith("urn:li:dataset:"):
+                continue
+            out.append({"urn": u, "name": _short_name(u), "platform": _platform_of(u)})
+        return out
+    except Exception:
+        return None
+
+
 def lineage(urn: str, direction: str = "UPSTREAM", max_hops: int = 3) -> dict[str, Any]:
     """BFS over DataHub lineage, one hop at a time, collecting nodes, edges and
-    column-level mappings."""
+    column-level mappings. Each hop is served by the official DataHub MCP Server
+    when available, falling back to GraphQL."""
     direction = direction.upper()
     if direction not in ("UPSTREAM", "DOWNSTREAM"):
         raise ValueError("direction must be UPSTREAM or DOWNSTREAM")
+    transports: set[str] = set()
 
     nodes: dict[str, dict[str, Any]] = {}
     edges: list[dict[str, Any]] = []
@@ -274,29 +303,35 @@ def lineage(urn: str, direction: str = "UPSTREAM", max_hops: int = 3) -> dict[st
     for _hop in range(max_hops):
         next_frontier: list[str] = []
         for cur in frontier:
-            res = _graph().execute_graphql(
-                _LINEAGE_QUERY, variables={"urn": cur, "direction": direction}
-            )
-            ds = res.get("dataset")
-            if ds is None:
-                continue
-            rels = ((ds.get("lineage") or {}).get("relationships")) or []
-            for rel in rels:
-                if rel.get("degree", 1) != 1:
-                    continue  # BFS handles multi-hop; only take direct edges per query
-                ent = rel["entity"]
-                if ent.get("type") != "DATASET":
+            neighbours = _mcp_hop(cur, direction)
+            if neighbours is not None:
+                transports.add("datahub-mcp-server")
+            else:
+                transports.add("datahub-graphql")
+                res = _graph().execute_graphql(
+                    _LINEAGE_QUERY, variables={"urn": cur, "direction": direction}
+                )
+                ds = res.get("dataset")
+                if ds is None:
                     continue
-                note_node(ent["urn"], ent.get("name"), (ent.get("platform") or {}).get("name"))
-                if direction == "UPSTREAM":
-                    edge = (ent["urn"], cur)
-                else:
-                    edge = (cur, ent["urn"])
+                rels = ((ds.get("lineage") or {}).get("relationships")) or []
+                neighbours = [
+                    {
+                        "urn": rel["entity"]["urn"],
+                        "name": rel["entity"].get("name"),
+                        "platform": (rel["entity"].get("platform") or {}).get("name"),
+                    }
+                    for rel in rels
+                    if rel.get("degree", 1) == 1 and rel["entity"].get("type") == "DATASET"
+                ]
+            for n in neighbours:
+                note_node(n["urn"], n.get("name"), n.get("platform"))
+                edge = (n["urn"], cur) if direction == "UPSTREAM" else (cur, n["urn"])
                 if edge not in seen_edges:
                     seen_edges.add(edge)
                     edges.append({"source": edge[0], "target": edge[1], "columns": []})
-                if ent["urn"] not in nodes or ent["urn"] not in next_frontier:
-                    next_frontier.append(ent["urn"])
+                if n["urn"] not in next_frontier:
+                    next_frontier.append(n["urn"])
         frontier = [u for u in dict.fromkeys(next_frontier)]
         if not frontier:
             break
@@ -316,6 +351,7 @@ def lineage(urn: str, direction: str = "UPSTREAM", max_hops: int = 3) -> dict[st
         "direction": direction,
         "nodes": list(nodes.values()),
         "edges": edges,
+        "via": "+".join(sorted(transports)) or "datahub-graphql",
     }
 
 
