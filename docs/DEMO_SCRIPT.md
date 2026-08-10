@@ -12,7 +12,7 @@ Target runtime: **2:55** (hard limit is *under* 3:00 — Devpost rule). Narratio
 4. **Frontend** — `cd frontend && npm run dev`; open `http://localhost:3000`.
 5. **Browser tabs prepared:**
    - Tab 1: BlackBox command center (`localhost:3000`).
-   - Tab 2: DataHub UI, on the `marts.exec_revenue_metric` dataset page (for the writeback reveal — refresh only when scripted).
+   - Tab 2: DataHub UI, logged in (`datahub`/`datahub`), on `raw.raw_orders` — this is where the incident, remediation note and tag land. Dismiss the first-run product tour modal *before* recording. Refresh only when scripted.
    - No terminal needed on screen: the incident is filed from the UI's **Investigate Incident** dialog (prefilled report text).
 6. **Recording:** 1080p or higher, hide bookmarks/notifications, dark OS theme to match the UI. Clean git state (`git status`), no leftover `blackbox/fix-*` branches.
 7. **Timing reality check:** the live investigation takes ~2–5 minutes of wall clock. Record it in full, then **speed up the investigation and repair segments** to fit; add a small "footage sped up" caption during accelerated sections. Every result shown is still real.
@@ -58,7 +58,9 @@ Target runtime: **2:55** (hard limit is *under* 3:00 — Devpost rule). Narratio
 
 ### 2:10 – 2:35 — The receipts, in DataHub itself (51 words)
 
-**Clicks:** Point at the ResolutionCard's git line (`blackbox/fix-<id>` + commit). Switch to Tab 2 (DataHub UI) and refresh: show the **resolved incident** on the dataset (title `[BlackBox] …`, status Resolved/Fixed with tests + KPI in the message), then scroll the dataset docs to the appended **Incident history** note and the **blackbox-remediated** tag.
+**Clicks:** Point at the ResolutionCard's git line (`blackbox/fix-<id>` + commit). Switch to Tab 2 (DataHub UI) and refresh: show the dataset's **Documentation** tab with the appended **Incident history** note (root cause, patch file, branch/commit, 32/32 verification) and the **blackbox-remediated** tag in the sidebar.
+
+> ⚠️ **Capture gotcha (learned in the drill):** DataHub's **Incidents** tab lists *ACTIVE* incidents only. Once BlackBox resolves the incident it disappears from that tab, so filming the Incidents tab *after* the repair shows an empty list. Either (a) film the Incidents tab during the investigation window — the incident is raised ACTIVE the moment the root cause is confirmed, and shows as `Critical (1) · [BlackBox] …` with 4 assets (see `docs/screenshots/05-datahub-incident.png`) — and then show the Documentation note after the repair, or (b) show only the Documentation note + tag here. Option (a) is the stronger story: raised → resolved.
 
 **Narration:**
 > The fix is committed to a real git branch. And here — in DataHub's own UI — is the writeback: a resolved incident on the affected datasets with the root cause and test results, a remediation note appended to the docs, and a blackbox-remediated tag. The context graph now remembers this outage forever.
