@@ -43,6 +43,7 @@ datahub docker quickstart                                       # DataHub OSS (U
 - `ANTHROPIC_API_KEY` (required for investigations), `ANTHROPIC_MODEL` (default `claude-opus-5`)
 - `DATAHUB_GMS_URL` (default `http://localhost:8080`), `DATAHUB_GMS_TOKEN` (optional)
 - `BLACKBOX_DISABLE_DATAHUB=true` — ablation: DataHub tools return errors (for evals)
+- `BLACKBOX_CREATE_PR=true` — after a VERIFIED repair, push the `blackbox/fix-*` branch and open a real PR via `gh`. **Default false**; the demo and evals must never push to a remote. Requires `gh auth`. Caveat: `demo/reset` only deletes *local* fix branches, so an opened PR/remote branch needs manual cleanup.
 - `BLACKBOX_API_PORT` (default 8400); frontend: `NEXT_PUBLIC_BLACKBOX_API_URL`
 - Never commit `.env`.
 

@@ -103,7 +103,8 @@ Implemented in `backend/blackbox/repair.py`, orchestrated by `agent/tools.py::t_
 2. **Real diff:** `difflib.unified_diff` computes the patch from actual old/new file contents — the diff shown in the UI is always the diff that ran.
 3. **Apply:** file written in place, original backed up (`.sql.orig`).
 4. **Verify (`verify_repair`):** rebuild the entire warehouse (`pipeline/run.py`), run the **full 32-test invariant suite**, recompute the KPI. Success requires **all tests green AND anomaly ratio back in [0.8, 1.3]**. Failure returns the failing tests to the model to iterate; an abandoned patch is reverted.
-5. **Git artifact:** the verified fix is committed on branch `blackbox/fix-<incident-id>` via a **temporary git worktree** so the main working tree is never disturbed (`make_git_artifact`). `try_create_pr` can push and open a PR via `gh`, but is deliberately not called during the demo — the run produces a local branch + commit and never touches a remote.
+5. **Git artifact:** the verified fix is committed on branch `blackbox/fix-<incident-id>` via a **temporary git worktree** so the main working tree is never disturbed (`make_git_artifact`).
+6. **PR publication (opt-in, off by default):** with `BLACKBOX_CREATE_PR=true`, `publish_repair_pr` pushes that branch to `origin` and opens a real PR via `gh`, with a body rendered *only* from the recorded `IncidentState` — disclosure header, root cause, DataHub evidence census, quantitative tables built from the cited evidence payloads, the difflib patch, before/after KPI, and the invariant result. The flag defaults **false**, so the demo and every eval stay entirely local: with it off no subprocess is spawned at all. This step runs strictly *after* verification and can never affect it — preconditions (`origin` present, `gh auth status` clean, branch prefixed `blackbox/fix-`) short-circuit to `skipped`, and any failure is caught, recorded as a `git`-source evidence item, and leaves the incident `VERIFIED`/`WRITEBACK_COMPLETE` with `pr_url` unset.
 6. **Writeback:** the DataHub incident is resolved with the remediation record (section 6).
 
 The repair prompt discipline lives in `agent/prompts.py`: fix at the right layer (staging boundary), targeted condition, no deleting/hiding data, "restoring the headline number by breaking something else is failure".
@@ -147,7 +148,7 @@ Incidents are filed from the UI's **Investigate Incident** dialog (`IncidentDial
 
 Stated plainly rather than hidden — the full list with evidence is in [`ACCEPTANCE.md`](ACCEPTANCE.md).
 
-- **PR creation is not wired into the automated flow.** `repair.try_create_pr` exists and works, but the demo stops at a real local branch + commit; nothing pushes to a remote during a run.
+- **PR publication is opt-in.** It is wired (`publish_repair_pr`) but gated behind `BLACKBOX_CREATE_PR`, default off, so a demo run stops at a real local branch + commit and never touches a remote. Note the reset caveat: `POST /api/demo/reset` deletes only *local* `blackbox/fix-*` branches, so with the flag enabled a pushed branch and open PR outlive a reset and need manual cleanup.
 - **Repairs are single-file**, scoped to `pipeline/transforms/*.sql` by `repair._resolve_transform`.
 - **One incident archetype.** Every component is exercised against the seeded unit-semantics failure; a second archetype (timezone shift, duplicate rows) would reuse the same plumbing but is not implemented.
 - **Consistency is measured over a handful of runs**, not a large N.

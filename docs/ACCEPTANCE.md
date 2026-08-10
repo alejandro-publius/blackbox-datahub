@@ -33,5 +33,5 @@ runnable by a judge; artifacts are committed so they can be inspected without an
 - The pipeline and its incident are **authored by us** and deterministic by design. The incident realism is illustrative; the machinery (evidence gates, verification loop, writeback) is the contribution.
 - The DataHub ablation shows the agent *can* still reach a correct diagnosis on this 5-transform fixture by reading pipeline source files. What DataHub supplies is the scalable topology map, the contract evidence that makes the violation *provable*, and the durable incident record — not helplessness without it.
 - Positive-path consistency is measured over a handful of runs, not a large N.
-- `try_create_pr` exists but is not wired into the demo flow; the git branch/commit is the artifact.
+- PR publication is wired but **opt-in** (`BLACKBOX_CREATE_PR`, default off) so the demo never pushes to a remote; the local git branch + commit is the demo artifact. With the flag on, a reset leaves the pushed branch and open PR behind.
 - Repairs are scoped to a single `pipeline/transforms/*.sql` file.
