@@ -113,7 +113,14 @@ Deep version — state machine, evidence-gating internals, verification loop: **
 
 **The honest ablation.** `BLACKBOX_DISABLE_DATAHUB=true` disables the DataHub tools *and* writeback, and relaxes the confirm gate so the test isn't circular. Measured result: on this 5-transform fixture the ablated agent can still brute-force a correct diagnosis by reading transform files. We report that instead of claiming helplessness. What it loses is what matters at scale — the topology map (unworkable across thousands of models), the documented contract that makes the violation *provable*, every DataHub-grounded citation, and any durable record of the incident.
 
-**Contributed back:** building this surfaced a silent `datahub docker quickstart` hang under Colima/Rancher Desktop/Podman (docker-py reads `DOCKER_HOST` but not Docker CLI contexts). Filed upstream: **[datahub-project/datahub#19046](https://github.com/datahub-project/datahub/pull/19046)**. Full friction log: [`docs/DATAHUB_FEEDBACK_LOG.md`](docs/DATAHUB_FEEDBACK_LOG.md).
+### Contributed back to DataHub OSS
+
+Two upstream PRs, both **open** (not merged) at time of submission:
+
+- **[datahub-skills#133](https://github.com/datahub-project/datahub-skills/pull/133)** — a new `datahub-incident-investigation` skill (16 files, +1259/−48) generalizing this project's methodology into a reusable, vendor-neutral agent workflow: symptom → lineage localization → competing hypotheses → evidence standards (necessity **and** sufficiency) → a 5-point confirmation gate → blast radius → remediation → verification → writeback. It names no warehouse, no schema, and nothing from this repo. Every command in it was executed against live DataHub OSS first — log in [`docs/SKILL_VALIDATION.md`](docs/SKILL_VALIDATION.md), which also captured three upstream-relevant findings: `health` returns a list rather than an object; `properties.description` can be `null` while `editableProperties.description` holds the real contract (an agent reading only the former calls a documented column undocumented); and OSS has no top-level `incident(urn:)` query.
+- **[datahub#19046](https://github.com/datahub-project/datahub/pull/19046)** — troubleshooting docs for a silent `datahub docker quickstart` hang under Colima/Rancher Desktop/Podman (docker-py reads `DOCKER_HOST` but not Docker CLI contexts), which cost us ~15 minutes of a blank screen.
+
+Full friction log: [`docs/DATAHUB_FEEDBACK_LOG.md`](docs/DATAHUB_FEEDBACK_LOG.md).
 
 ## Quickstart
 

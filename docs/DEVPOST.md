@@ -52,7 +52,13 @@ Metadata is what turns an LLM from a guesser into an investigator: the data cont
 
 ## Contributing back
 
-Building on DataHub OSS surfaced a real papercut: `datahub docker quickstart` hangs silently at "Starting up DataHub..." on Colima, Rancher Desktop, and Podman, because docker-py reads `DOCKER_HOST` but not Docker CLI contexts — no error, no images pulled, while `docker ps` works fine in the same shell. We filed a troubleshooting-docs PR upstream with the diagnosis and the per-runtime fix: [datahub-project/datahub#19046](https://github.com/datahub-project/datahub/pull/19046). Our full friction log (stale auth defaults, the removed `:head` tag, the one-hour default PAT duration, MCP mutation ambiguity for OSS) is in `docs/DATAHUB_FEEDBACK_LOG.md`.
+Two upstream PRs, both open at submission time (neither merged — we're not claiming otherwise):
+
+**[datahub-skills#133](https://github.com/datahub-project/datahub-skills/pull/133) — a new `datahub-incident-investigation` skill.** We took the methodology BlackBox implements and generalized it into a reusable agent workflow for anyone with DataHub: locate the affected asset, traverse lineage to localize the fault, form competing hypotheses, hold evidence to a necessity-and-sufficiency standard so distractors get eliminated quantitatively, pass a 5-point confirmation gate before declaring a cause, then assess blast radius, remediate, verify, and write the resolution back. It's deliberately vendor-neutral — no DuckDB, no cents-vs-dollars, nothing from our repo. Every command in it was run against live DataHub OSS before we opened the PR, which surfaced three things worth reporting upstream: `health` returns a list, not an object; `properties.description` can be null while `editableProperties.description` holds the actual contract; and OSS has no top-level `incident(urn:)` query. It also slots deliberately alongside the existing `datahub-quality` skill rather than duplicating it — quality *detects and records*, investigation *explains and resolves*.
+
+**[datahub#19046](https://github.com/datahub-project/datahub/pull/19046) — quickstart troubleshooting docs.** `datahub docker quickstart` hangs silently at "Starting up DataHub..." on Colima, Rancher Desktop, and Podman because docker-py reads `DOCKER_HOST` but not Docker CLI contexts — no error, no images, while `docker ps` works fine in the same shell. Cost us 15 minutes of a blank screen.
+
+Our full friction log (stale auth defaults, the removed `:head` tag, the one-hour default PAT duration, MCP mutation ambiguity for OSS) is in `docs/DATAHUB_FEEDBACK_LOG.md`.
 
 ## What's next
 
