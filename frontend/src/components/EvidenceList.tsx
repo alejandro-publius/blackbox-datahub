@@ -8,7 +8,7 @@ import { SOURCE_STYLES } from "@/lib/status";
 import type { EvidenceItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const KIND_LABELS: Record<EvidenceItem["kind"], string> = {
+export const KIND_LABELS: Record<EvidenceItem["kind"], string> = {
   metadata: "METADATA",
   profile: "PROFILE",
   baseline_comparison: "BASELINE",

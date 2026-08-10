@@ -141,7 +141,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     },
     {
         "name": "confirm_root_cause",
-        "description": "Declare the confirmed root cause. Requires cited evidence: at least one DataHub lineage/metadata item AND one quantitative item (profile or baseline comparison) that names the blamed field. Rejected otherwise.",
+        "description": "Declare the confirmed root cause. asset_urn must be the MOST UPSTREAM asset where the defect enters the pipeline (the true origin, not where it becomes visible). Requires cited evidence: at least one DataHub lineage/metadata item AND one quantitative item (profile or baseline comparison) that names the blamed field. Rejected otherwise.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -475,6 +475,15 @@ class ToolExecutor:
             if h.target_urn == asset_urn and h.status != "eliminated":
                 h.status = "confirmed"
                 h.confidence = max(h.confidence, 0.95)
+        # raise a real ACTIVE incident in DataHub the moment the cause is proven
+        try:
+            from ..datahub import writeback as wb_mod
+
+            wb = wb_mod.raise_incident(self.state)
+            self.state.writeback = wb
+            self._record("writeback", "datahub", "DataHub incident raised (ACTIVE)", wb.detail, wb.model_dump())
+        except Exception as e:
+            self._record("writeback", "datahub", "DataHub incident raise failed", str(e), None)
         return {"ok": True, "message": "root cause accepted with machine-checked evidence"}
 
     def t_declare_no_incident(self, reasoning: str, evidence_ids: list[str]) -> Any:

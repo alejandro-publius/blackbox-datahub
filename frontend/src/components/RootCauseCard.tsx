@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ShieldAlert, Wrench } from "lucide-react";
+import { ShieldAlert, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatUsd, shortUrn } from "@/lib/format";
 import type { EvidenceItem, IncidentState, MetricSnapshot } from "@/lib/types";
@@ -9,9 +9,10 @@ import type { EvidenceItem, IncidentState, MetricSnapshot } from "@/lib/types";
 type RootCause = NonNullable<IncidentState["root_cause"]>;
 
 /**
- * Dramatic bottom-drawer panel shown when the agent confirms a root cause.
- * Wired later to the live incident stream; safe to render with any
- * IncidentState that has `root_cause` set.
+ * Dramatic panel shown when the agent confirms a root cause (the screenshot
+ * moment). Driven entirely by the live IncidentState. Dismissible so the
+ * operator can inspect the lineage graph underneath; a persistent
+ * "Repair & Verify" button stays in the top bar while dismissed.
  */
 export function RootCauseCard({
   rootCause,
@@ -20,6 +21,7 @@ export function RootCauseCard({
   affectedCount,
   onRepair,
   repairing,
+  onDismiss,
 }: {
   rootCause: RootCause;
   metric?: MetricSnapshot;
@@ -27,6 +29,7 @@ export function RootCauseCard({
   affectedCount: number;
   onRepair: () => void;
   repairing?: boolean;
+  onDismiss?: () => void;
 }) {
   const chips = rootCause.evidence_ids
     .map((id) => evidence.find((e) => e.id === id))
@@ -38,9 +41,20 @@ export function RootCauseCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 24 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="pulse-root-cause rounded-xl border border-red-500/50 bg-zinc-900 p-5"
+      className="pulse-root-cause relative rounded-xl border border-red-500/50 bg-zinc-900 p-5"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="absolute top-3 right-3 rounded-md p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+          aria-label="Dismiss and inspect graph"
+          title="Dismiss and inspect graph"
+        >
+          <X className="size-4" />
+        </button>
+      )}
+      <div className="flex flex-wrap items-start justify-between gap-4 pr-6">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-red-500">
             <ShieldAlert className="size-5" />
@@ -109,7 +123,16 @@ export function RootCauseCard({
         </div>
       )}
 
-      <div className="mt-5 flex justify-end">
+      <div className="mt-5 flex items-center justify-end gap-2">
+        {onDismiss && (
+          <Button
+            variant="ghost"
+            onClick={onDismiss}
+            className="text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+          >
+            Inspect graph
+          </Button>
+        )}
         <Button
           onClick={onRepair}
           disabled={repairing}

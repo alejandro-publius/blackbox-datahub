@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Activity, Boxes, DollarSign, Radar } from "lucide-react";
 import type { ComponentType } from "react";
+import { RevenueChart } from "@/components/RevenueChart";
 import { formatDeltaPct, formatUsd } from "@/lib/format";
 import { AFFECTED_STATUSES, STAGE_STYLES } from "@/lib/status";
 import type { IncidentStage, LineageNode, MetricSnapshot } from "@/lib/types";
@@ -17,6 +18,13 @@ interface Tile {
   /** border-left accent */
   accent: string;
   valueClass?: string;
+  /** small badge rendered next to the value (e.g. "93× EXPECTED") */
+  badge?: { text: string; className: string };
+}
+
+function formatRatioBadge(ratio: number): string {
+  const x = ratio >= 10 ? Math.round(ratio).toString() : ratio.toFixed(1);
+  return `${x}× EXPECTED`;
 }
 
 export function KpiStrip({
@@ -46,6 +54,13 @@ export function KpiStrip({
         : "no data",
       accent: revenueBad ? "border-l-red-400" : "border-l-emerald-400",
       valueClass: revenueBad ? "text-red-400" : "text-zinc-100",
+      badge:
+        metrics && revenueBad
+          ? {
+              text: formatRatioBadge(metrics.anomaly_ratio),
+              className: "border-red-400/40 bg-red-400/10 text-red-400",
+            }
+          : undefined,
     },
     {
       key: "health",
@@ -90,7 +105,7 @@ export function KpiStrip({
   ];
 
   return (
-    <div className="grid shrink-0 grid-cols-2 gap-3 px-4 py-3 xl:grid-cols-4">
+    <div className="grid shrink-0 grid-cols-2 gap-3 px-4 py-3 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(280px,1.4fr)]">
       {tiles.map((tile) => (
         <div
           key={tile.key}
@@ -103,24 +118,44 @@ export function KpiStrip({
             <tile.icon className="size-3.5" />
             {tile.label}
           </div>
-          <motion.div
-            key={tile.value}
-            initial={{ opacity: 0.4 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.25 }}
-            className={cn(
-              "mt-1 truncate font-mono text-2xl font-semibold tabular-nums",
-              tile.valueClass,
+          <div className="flex items-baseline gap-2">
+            <motion.div
+              key={tile.value}
+              initial={{ opacity: 0.4 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.25 }}
+              className={cn(
+                "mt-1 min-w-0 truncate font-mono text-2xl font-semibold tabular-nums",
+                tile.valueClass,
+              )}
+              title={tile.value}
+            >
+              {tile.value}
+            </motion.div>
+            {tile.badge && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.25 }}
+                className={cn(
+                  "shrink-0 rounded border px-1.5 py-px font-mono text-[10px] font-bold tabular-nums tracking-wide",
+                  tile.badge.className,
+                )}
+              >
+                {tile.badge.text}
+              </motion.span>
             )}
-            title={tile.value}
-          >
-            {tile.value}
-          </motion.div>
+          </div>
           <div className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-zinc-500">
             {tile.detail}
           </div>
         </div>
       ))}
+      {metrics && metrics.daily.length > 0 && (
+        <div className="col-span-2 xl:col-span-1">
+          <RevenueChart metrics={metrics} />
+        </div>
+      )}
     </div>
   );
 }

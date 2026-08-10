@@ -43,7 +43,7 @@ export const NODE_STATUS_STYLES: Record<NodeStatus, NodeStatusStyle> = {
     border: "border-sky-400",
     bg: "bg-sky-400/10",
     dot: "bg-sky-400",
-    ring: "",
+    ring: "pulse-investigating",
   },
   suspicious: {
     label: "Suspicious",

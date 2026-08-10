@@ -1,4 +1,10 @@
-import type { IncidentState, LineageGraph, MetricSnapshot } from "./types";
+import type {
+  HealthStatus,
+  IncidentStage,
+  IncidentState,
+  LineageGraph,
+  MetricSnapshot,
+} from "./types";
 
 /**
  * Typed client for the BlackBox backend API.
@@ -44,7 +50,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function getHealth(): Promise<{ status: string }> {
+export function getHealth(): Promise<HealthStatus> {
   return fetchJson("/api/health");
 }
 
@@ -69,17 +75,30 @@ export function getIncident(id: string): Promise<IncidentState> {
   return fetchJson(`/api/incidents/${encodeURIComponent(id)}`);
 }
 
+export interface IncidentListItem {
+  id: string;
+  stage: IncidentStage;
+  report_text: string;
+  created_at: string;
+}
+
+/** Newest-first list of incidents (used to resume an in-flight one on load). */
+export function listIncidents(): Promise<IncidentListItem[]> {
+  return fetchJson("/api/incidents");
+}
+
 /** URL for the SSE stream of incident state snapshots (used by EventSource). */
 export function incidentEventsUrl(id: string): string {
   return `${API_BASE_URL}/api/incidents/${encodeURIComponent(id)}/events`;
 }
 
-export function repairIncident(id: string): Promise<unknown> {
+export function repairIncident(id: string): Promise<{ ok: boolean }> {
   return fetchJson(`/api/incidents/${encodeURIComponent(id)}/repair`, {
     method: "POST",
   });
 }
 
-export function resetDemo(): Promise<unknown> {
+/** Rebuilds the broken fixture — takes ~15-30s on the backend. */
+export function resetDemo(): Promise<{ ok: boolean; steps: string[] }> {
   return fetchJson("/api/demo/reset", { method: "POST" });
 }

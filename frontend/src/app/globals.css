@@ -173,6 +173,21 @@
   animation: root-cause-pulse 1.8s ease-in-out infinite;
 }
 
+/* Pulsing sky glow for nodes under active investigation. */
+@keyframes investigating-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 6px 1px oklch(0.746 0.16 232.661 / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px oklch(0.746 0.16 232.661 / 0.45);
+  }
+}
+
+.pulse-investigating {
+  animation: investigating-pulse 1.6s ease-in-out infinite;
+}
+
 /* React Flow dark-theme adjustments */
 .react-flow {
   background: transparent;

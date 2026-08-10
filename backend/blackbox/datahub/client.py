@@ -59,6 +59,36 @@ query search($q: String!) {
 
 
 def search(query: str) -> list[dict[str, Any]]:
+    """Entity discovery. Routed through the official DataHub MCP Server when
+    available (BlackBox is a real MCP client of DataHub's agent surface); falls
+    back to direct GraphQL so MCP is additive, never a point of failure."""
+    try:
+        from .mcp_bridge import bridge
+
+        if bridge.available:
+            res = bridge.call_tool("search", {"query": query})
+            hits = res.get("searchResults", []) if isinstance(res, dict) else []
+            out = []
+            for h in hits:
+                e = h.get("entity") or {}
+                urn = e.get("urn")
+                if not urn:
+                    continue
+                props = e.get("properties") or {}
+                out.append(
+                    {
+                        "urn": urn,
+                        "name": props.get("name") or _short_name(urn),
+                        "platform": _platform_of(urn),
+                        "description": props.get("description"),
+                        "via": "datahub-mcp-server",
+                    }
+                )
+            if out:
+                return out
+    except Exception:
+        pass  # fall through to GraphQL
+
     res = _graph().execute_graphql(_SEARCH_QUERY, variables={"q": query})
     out = []
     for hit in res["searchAcrossEntities"]["searchResults"]:
@@ -70,6 +100,7 @@ def search(query: str) -> list[dict[str, Any]]:
                 "name": props.get("name") or e.get("name"),
                 "platform": (e.get("platform") or {}).get("name"),
                 "description": props.get("description"),
+                "via": "datahub-graphql",
             }
         )
     return out
@@ -137,7 +168,7 @@ def get_dataset(urn: str) -> dict[str, Any]:
             }
         )
     description = ((d.get("editableProperties") or {}).get("description")) or props.get("description")
-    return {
+    result = {
         "urn": d["urn"],
         "name": props.get("name") or d.get("name"),
         "platform": (d.get("platform") or {}).get("name"),
@@ -147,7 +178,22 @@ def get_dataset(urn: str) -> dict[str, Any]:
         "owners": owners,
         "tags": [t["tag"]["name"] for t in ((d.get("tags") or {}).get("tags") or [])],
         "domain": ((d.get("domain") or {}).get("domain") or {}).get("urn"),
+        "via": "datahub-graphql",
     }
+    # enrich with health signals from the DataHub MCP Server (best-effort)
+    try:
+        from .mcp_bridge import bridge
+
+        if bridge.available:
+            ents = bridge.call_tool("get_entities", {"urns": [urn]})
+            if isinstance(ents, list) and ents and isinstance(ents[0], dict):
+                health = ents[0].get("health")
+                if health:
+                    result["health"] = health
+                result["via"] = "datahub-mcp-server+graphql"
+    except Exception:
+        pass
+    return result
 
 
 # -------------------------------------------------------------------- lineage
@@ -277,3 +323,8 @@ def _short_name(urn: str) -> str:
     # urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD) -> marts.fct_revenue
     m = re.match(r"^urn:li:dataset:\(urn:li:dataPlatform:[^,]+,(?P<name>.+),[^,]+\)$", urn)
     return m.group("name") if m else urn
+
+
+def _platform_of(urn: str) -> str:
+    m = re.match(r"^urn:li:dataset:\(urn:li:dataPlatform:(?P<p>[^,]+),", urn)
+    return m.group("p") if m else "unknown"

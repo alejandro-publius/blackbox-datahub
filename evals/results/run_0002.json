@@ -1,0 +1,212 @@
+{
+  "run": 2,
+  "started_at": "2026-08-10T05:40:18.128156+00:00",
+  "finished_at": "2026-08-10T05:40:56.245363+00:00",
+  "scenarios_requested": [
+    "positive_incident",
+    "control_no_incident",
+    "datahub_ablation",
+    "positive_incident_repeat"
+  ],
+  "trials": 2,
+  "consistency": {
+    "trials": 2,
+    "passed": 0,
+    "pass_rate": 0.0
+  },
+  "results": [
+    {
+      "scenario": "positive_incident",
+      "status": "failed",
+      "checks": {
+        "terminal_ok": false,
+        "root_cause_correct": false,
+        "semantic_identified": false,
+        "distractor_avoided": true,
+        "repair_correct_file": false,
+        "repair_verified": false,
+        "repair_targeted": false,
+        "evidence_coverage": false,
+        "writeback_done": false
+      },
+      "metrics": {
+        "distractor_examined": false,
+        "evidence_by_source": {},
+        "turns": 0,
+        "tool_calls": 0
+      },
+      "notes": [
+        "stage=FAILED; turns=0; tool_calls=0"
+      ],
+      "details": {
+        "final_stage": "FAILED",
+        "final_summary": null,
+        "error": "BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': '`temperature` is deprecated for this model.'}, 'request_id': 'req_011CdtXmntc5sAhu8PCNNabi'}",
+        "n_evidence": 0,
+        "n_hypotheses": 0,
+        "root_cause": null,
+        "patch_diff": null,
+        "patch_reasoning": null,
+        "tests_after": null,
+        "metric_after_anomaly_ratio": null,
+        "writeback": null
+      },
+      "incident_id": "inc_74b2f4640c",
+      "wall_time_s": 3.15,
+      "trial": 1,
+      "started_at": "2026-08-10T05:40:18.245321+00:00",
+      "disable_datahub": false,
+      "description": "Full autonomous loop on the cents-vs-dollars incident: correct root cause, targeted verified repair, DataHub writeback."
+    },
+    {
+      "scenario": "control_no_incident",
+      "status": "failed",
+      "checks": {
+        "stage_no_incident": false,
+        "no_patch": true,
+        "transforms_unchanged": true,
+        "no_false_positive": true
+      },
+      "metrics": {
+        "false_positive": false,
+        "turns": 0,
+        "tool_calls": 0
+      },
+      "notes": [
+        "stage=FAILED"
+      ],
+      "details": {
+        "final_stage": "FAILED",
+        "final_summary": null,
+        "error": "BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': '`temperature` is deprecated for this model.'}, 'request_id': 'req_011CdtXn1C2w9UrpzxnJZpG2'}",
+        "n_evidence": 0,
+        "n_hypotheses": 0,
+        "root_cause": null
+      },
+      "incident_id": "inc_d8539d1242",
+      "wall_time_s": 2.69,
+      "trial": 1,
+      "started_at": "2026-08-10T05:40:21.547409+00:00",
+      "disable_datahub": false,
+      "description": "Healthy data + vague report: the agent must conclude NO_INCIDENT and touch nothing (false-positive control)."
+    },
+    {
+      "scenario": "datahub_ablation",
+      "status": "passed",
+      "checks": {
+        "datahub_load_bearing": true
+      },
+      "metrics": {
+        "ablated_final_stage": "FAILED",
+        "ablated_reached_terminal": false,
+        "ablated_root_cause_correct": false,
+        "turns": 0,
+        "tool_calls": 0
+      },
+      "notes": [
+        "ablated run ended stage=FAILED, root_cause=none"
+      ],
+      "details": {
+        "final_stage": "FAILED",
+        "final_summary": null,
+        "error": "BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': '`temperature` is deprecated for this model.'}, 'request_id': 'req_011CdtXnD8dGpykqxgckEJBB'}",
+        "n_evidence": 0,
+        "n_hypotheses": 0,
+        "root_cause": null,
+        "settings_blackbox_disable_datahub": true
+      },
+      "incident_id": "inc_22a3d0fb1f",
+      "wall_time_s": 24.82,
+      "trial": 1,
+      "started_at": "2026-08-10T05:40:24.409912+00:00",
+      "disable_datahub": true,
+      "description": "Same incident with DataHub tools disabled: the agent must NOT reach a correct confirmed root cause (DataHub is load-bearing)."
+    },
+    {
+      "scenario": "positive_incident_repeat",
+      "status": "failed",
+      "checks": {
+        "terminal_ok": false,
+        "root_cause_correct": false,
+        "semantic_identified": false,
+        "distractor_avoided": true,
+        "repair_correct_file": false,
+        "repair_verified": false,
+        "repair_targeted": false,
+        "evidence_coverage": false,
+        "writeback_done": false
+      },
+      "metrics": {
+        "distractor_examined": false,
+        "evidence_by_source": {},
+        "turns": 0,
+        "tool_calls": 0
+      },
+      "notes": [
+        "stage=FAILED; turns=0; tool_calls=0"
+      ],
+      "details": {
+        "final_stage": "FAILED",
+        "final_summary": null,
+        "error": "BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': '`temperature` is deprecated for this model.'}, 'request_id': 'req_011CdtXp89YXV6sjZivs5yNm'}",
+        "n_evidence": 0,
+        "n_hypotheses": 0,
+        "root_cause": null,
+        "patch_diff": null,
+        "patch_reasoning": null,
+        "tests_after": null,
+        "metric_after_anomaly_ratio": null,
+        "writeback": null
+      },
+      "incident_id": "inc_a7566bb87b",
+      "wall_time_s": 3.56,
+      "trial": 1,
+      "started_at": "2026-08-10T05:40:49.518714+00:00",
+      "disable_datahub": false,
+      "description": "positive_incident repeated N times (--trials) for consistency measurement."
+    },
+    {
+      "scenario": "positive_incident_repeat",
+      "status": "failed",
+      "checks": {
+        "terminal_ok": false,
+        "root_cause_correct": false,
+        "semantic_identified": false,
+        "distractor_avoided": true,
+        "repair_correct_file": false,
+        "repair_verified": false,
+        "repair_targeted": false,
+        "evidence_coverage": false,
+        "writeback_done": false
+      },
+      "metrics": {
+        "distractor_examined": false,
+        "evidence_by_source": {},
+        "turns": 0,
+        "tool_calls": 0
+      },
+      "notes": [
+        "stage=FAILED; turns=0; tool_calls=0"
+      ],
+      "details": {
+        "final_stage": "FAILED",
+        "final_summary": null,
+        "error": "BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': '`temperature` is deprecated for this model.'}, 'request_id': 'req_011CdtXpLmot53PQB6o6cqwz'}",
+        "n_evidence": 0,
+        "n_hypotheses": 0,
+        "root_cause": null,
+        "patch_diff": null,
+        "patch_reasoning": null,
+        "tests_after": null,
+        "metric_after_anomaly_ratio": null,
+        "writeback": null
+      },
+      "incident_id": "inc_05bfe41453",
+      "wall_time_s": 2.91,
+      "trial": 2,
+      "started_at": "2026-08-10T05:40:53.211627+00:00",
+      "disable_datahub": false,
+      "description": "positive_incident repeated N times (--trials) for consistency measurement."
+    }
+  ]
+}

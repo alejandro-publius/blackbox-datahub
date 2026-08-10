@@ -27,7 +27,7 @@ echo "Minting personal access token (user: datahub) ..."
 datahub init --use-password --username datahub --password datahub --token-duration ONE_MONTH 2>/dev/null \
   || datahub init --username datahub --password datahub --token-duration ONE_MONTH
 
-TOKEN=$(python3 - <<'PY'
+TOKEN=$(uv run python - <<'PY'
 import pathlib, yaml
 cfg = yaml.safe_load(pathlib.Path.home().joinpath(".datahubenv").read_text())
 print(cfg["gms"]["token"])

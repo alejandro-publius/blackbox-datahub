@@ -15,7 +15,7 @@ mutation raiseIncident($input: RaiseIncidentInput!) { raiseIncident(input: $inpu
 """
 
 _UPDATE_STATUS = """
-mutation updateIncidentStatus($urn: String!, $input: UpdateIncidentStatusInput!) {
+mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {
   updateIncidentStatus(urn: $urn, input: $input)
 }
 """
@@ -70,6 +70,7 @@ def resolve_incident(state: IncidentState) -> Writeback:
     wb = state.writeback
     if wb is None or not wb.incident_urn:
         wb = raise_incident(state)
+        state.writeback = wb  # keep the urn even if a later step fails
 
     tests = state.tests_after
     metric = state.metric_after
@@ -82,13 +83,20 @@ def resolve_incident(state: IncidentState) -> Writeback:
         f"Fix branch: {git.branch} @ {git.commit[:10]}" if git else None,
     ]
     message = " | ".join(p for p in message_parts if p)
-    _graph().execute_graphql(
-        _UPDATE_STATUS,
-        variables={
-            "urn": wb.incident_urn,
-            "input": {"state": "RESOLVED", "stage": "FIXED", "message": message[:900]},
-        },
-    )
+    try:
+        _graph().execute_graphql(
+            _UPDATE_STATUS,
+            variables={
+                "urn": wb.incident_urn,
+                "input": {"state": "RESOLVED", "stage": "FIXED", "message": message[:900]},
+            },
+        )
+    except Exception as e:
+        return Writeback(
+            incident_urn=wb.incident_urn,
+            status="partial",
+            detail=f"incident raised but status update failed: {e}",
+        )
 
     extras = []
     # institutional memory on the root-cause dataset (best-effort)

@@ -102,7 +102,7 @@ function LineageNodeCard({ data }: NodeProps<LineageFlowNode>) {
       className={cn(
         "w-56 rounded-lg border bg-zinc-900 px-3 py-2.5 shadow-sm transition-colors",
         node.status === "healthy" ? "border-zinc-800" : style.border,
-        node.status === "root_cause" && style.ring,
+        style.ring,
       )}
     >
       <Handle
@@ -204,6 +204,9 @@ export function LineagePanel({
       const investigating =
         statusByUrn.get(edge.source) === "investigating" ||
         statusByUrn.get(edge.target) === "investigating";
+      const repaired =
+        statusByUrn.get(edge.source) === "repaired" &&
+        statusByUrn.get(edge.target) === "repaired";
       return {
         id: `${edge.source}->${edge.target}`,
         source: edge.source,
@@ -212,7 +215,11 @@ export function LineagePanel({
         animated: investigating,
         style: {
           // literal colors: Tailwind v4 may prune unused --color-* vars
-          stroke: investigating ? "#38bdf8" : "#3f3f46", // sky-400 : zinc-700
+          stroke: investigating
+            ? "#38bdf8" // sky-400
+            : repaired
+              ? "#34d399" // emerald-400
+              : "#3f3f46", // zinc-700
           strokeWidth: 1.5,
         },
       };

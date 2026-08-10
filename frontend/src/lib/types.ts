@@ -90,6 +90,13 @@ export interface TestReport {
   failures: { name: string; message: string }[];
 }
 
+export interface GitArtifact {
+  branch: string;
+  commit: string;
+  diff_stat: string;
+  pr_url?: string | null;
+}
+
 export interface IncidentState {
   id: string;
   report_text: string;
@@ -113,7 +120,27 @@ export interface IncidentState {
     evidence_ids: string[];
   };
   writeback?: { incident_urn?: string; status: string; detail: string };
+  git_artifact?: GitArtifact;
+  final_summary?: string;
   error?: string;
+}
+
+export interface HealthStatus {
+  status: string;
+  warehouse_ready: boolean;
+  datahub_connected: boolean;
+  anthropic_configured: boolean;
+}
+
+/** Stages after which the incident will never change again. */
+export const TERMINAL_STAGES: IncidentStage[] = [
+  "WRITEBACK_COMPLETE",
+  "NO_INCIDENT",
+  "FAILED",
+];
+
+export function isTerminalStage(stage: IncidentStage): boolean {
+  return TERMINAL_STAGES.includes(stage);
 }
 
 export interface LineageGraph {

@@ -1,0 +1,54 @@
+{
+  "run": 1,
+  "started_at": "2026-08-10T05:39:12.950428+00:00",
+  "finished_at": "2026-08-10T05:39:17.287033+00:00",
+  "scenarios_requested": [
+    "bad_repair_rejected"
+  ],
+  "trials": 1,
+  "consistency": null,
+  "results": [
+    {
+      "scenario": "bad_repair_rejected",
+      "status": "passed",
+      "checks": {
+        "bad_repair_rejected": true,
+        "immutability_caught": true,
+        "environment_restored": true
+      },
+      "metrics": {
+        "tests_total": 32,
+        "tests_failed": 11,
+        "kpi_anomaly_ratio_after_bad_patch": 93.268
+      },
+      "notes": [
+        "verify gate returned ok=False; 11/32 invariants failed; 1 historical-immutability/baseline failures"
+      ],
+      "details": {
+        "failing_tests": [
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-03]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-04]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-05]",
+          "pipeline.invariants.test_invariants::test_aov_median_in_range[2026-08-06]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-07]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-08]",
+          "pipeline.invariants.test_invariants::test_revenue_continuity[2026-08-09]",
+          "pipeline.invariants.test_invariants::test_historical_immutability_aggregate",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-05-20]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-06-25]",
+          "pipeline.invariants.test_invariants::test_historical_spot_day[2026-07-30]"
+        ],
+        "immutability_failures": [
+          "pipeline.invariants.test_invariants::test_historical_immutability_aggregate"
+        ],
+        "patch_diff": "--- a/pipeline/transforms/stg_orders.sql\n+++ b/pipeline/transforms/stg_orders.sql\n@@ -7,7 +7,7 @@\n     CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,\n     customer_id,\n     currency,\n-    CAST(amount AS DOUBLE) AS amount,\n+    CAST(amount AS DOUBLE) / 100.0 AS amount,\n     payment_processor,\n     status\n FROM raw.raw_orders\n"
+      },
+      "incident_id": null,
+      "wall_time_s": 4.22,
+      "trial": 1,
+      "started_at": "2026-08-10T05:39:13.014946+00:00",
+      "disable_datahub": false,
+      "description": "Deterministic: a naive blanket /100 patch must be REJECTED by the verification gate via the historical-immutability invariants."
+    }
+  ]
+}

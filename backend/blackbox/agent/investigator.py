@@ -121,7 +121,6 @@ def _run_loop(
             resp = client.messages.create(
                 model=settings.anthropic_model,
                 max_tokens=8192,
-                temperature=0.2,
                 system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
                 tools=TOOL_SCHEMAS,
                 messages=messages,
