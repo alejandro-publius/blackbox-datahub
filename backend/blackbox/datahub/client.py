@@ -59,9 +59,13 @@ query search($q: String!) {
 
 
 def search(query: str) -> list[dict[str, Any]]:
-    """Entity discovery. Routed through the official DataHub MCP Server when
-    available (BlackBox is a real MCP client of DataHub's agent surface); falls
-    back to direct GraphQL so MCP is additive, never a point of failure."""
+    """Entity discovery over DataHub's context graph.
+
+    Transport order: the official **MCP Server** (the interoperable agent
+    surface), then the **Agent Context Kit** (native embedded Python), then
+    direct GraphQL. Each result carries the transport that produced it in
+    `via`. These are alternative routes to one graph, not corroborating
+    sources."""
     try:
         from .mcp_bridge import bridge
 
@@ -86,6 +90,16 @@ def search(query: str) -> list[dict[str, Any]]:
                 )
             if out:
                 return out
+    except Exception:
+        pass  # fall through
+
+    # embedded Agent Context Kit path
+    try:
+        from . import context_kit
+
+        ack = context_kit.search(query)
+        if ack:
+            return ack
     except Exception:
         pass  # fall through to GraphQL
 
@@ -276,6 +290,16 @@ def _mcp_hop(urn: str, direction: str) -> list[dict[str, Any]] | None:
         return None
 
 
+def _ack_hop(urn: str, direction: str) -> list[dict[str, Any]] | None:
+    """One lineage hop via the embedded Agent Context Kit (no subprocess)."""
+    try:
+        from . import context_kit
+
+        return context_kit.lineage_hop(urn, upstream=direction == "UPSTREAM")
+    except Exception:
+        return None
+
+
 def lineage(urn: str, direction: str = "UPSTREAM", max_hops: int = 3) -> dict[str, Any]:
     """BFS over DataHub lineage, one hop at a time, collecting nodes, edges and
     column-level mappings. Each hop is served by the official DataHub MCP Server
@@ -307,6 +331,10 @@ def lineage(urn: str, direction: str = "UPSTREAM", max_hops: int = 3) -> dict[st
             if neighbours is not None:
                 transports.add("datahub-mcp-server")
             else:
+                neighbours = _ack_hop(cur, direction)
+                if neighbours is not None:
+                    transports.add("datahub-agent-context")
+            if neighbours is None:
                 transports.add("datahub-graphql")
                 res = _graph().execute_graphql(
                     _LINEAGE_QUERY, variables={"urn": cur, "direction": direction}

@@ -23,6 +23,7 @@ dependencies = [
     "tenacity>=9.0",
     "mcp>=2.0.0",
     "sqlparse>=0.5.5",
+    "datahub-agent-context>=1.6.0.8.post1",
 ]
 
 [dependency-groups]
