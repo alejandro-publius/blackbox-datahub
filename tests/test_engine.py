@@ -177,3 +177,17 @@ def test_run_sql_rejects_writes():
     with pytest.raises(ValueError):
         warehouse.run_sql("SELECT 1; SELECT 2")
     assert warehouse.run_sql("SELECT 1 AS x")["rows"] == [[1]]
+
+
+def test_run_sql_blocks_filesystem_exfiltration():
+    # denylist layer
+    with pytest.raises(ValueError):
+        warehouse.run_sql("SELECT * FROM read_csv('/etc/hosts')")
+    with pytest.raises(ValueError):
+        warehouse.run_sql("SELECT * FROM read_text('.env')")
+    # connection-hardening layer (bypass the regex with a novel function name):
+    # any external-access attempt must fail at the DuckDB level too
+    import duckdb as _duckdb
+
+    with pytest.raises((_duckdb.Error, ValueError)):
+        warehouse.run_sql("SELECT * FROM read_ndjson_objects('.env')")

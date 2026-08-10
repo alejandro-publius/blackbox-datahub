@@ -20,7 +20,20 @@ _READONLY_RE = re.compile(r"^\s*(select|with|describe|show|explain)\b", re.IGNOR
 
 
 def _connect() -> duckdb.DuckDBPyConnection:
-    return duckdb.connect(str(settings.warehouse_path), read_only=True)
+    con = duckdb.connect(str(settings.warehouse_path), read_only=True)
+    # Read-only protects the DB file, NOT the filesystem: without this, a
+    # SELECT-prefixed query could still exfiltrate local files via read_csv()/
+    # read_text() etc. (found by security review — prompt-injection hardening).
+    con.execute("SET enable_external_access=false")
+    con.execute("SET lock_configuration=true")
+    return con
+
+
+_EXTERNAL_FN_RE = re.compile(
+    r"\b(read_csv|read_csv_auto|read_text|read_blob|read_json|read_json_auto|read_parquet|"
+    r"parquet_scan|glob|copy|attach|install|load|getenv)\b",
+    re.IGNORECASE,
+)
 
 
 def run_sql(query: str, limit: int = 50) -> dict[str, Any]:
@@ -29,6 +42,8 @@ def run_sql(query: str, limit: int = 50) -> dict[str, Any]:
         raise ValueError("only read-only queries (SELECT/WITH/DESCRIBE/SHOW/EXPLAIN) are allowed")
     if ";" in query.rstrip().rstrip(";"):
         raise ValueError("multiple statements are not allowed")
+    if _EXTERNAL_FN_RE.search(query):
+        raise ValueError("filesystem/external-access functions are not allowed in warehouse queries")
     with _connect() as con:
         rel = con.sql(query)
         cols = rel.columns

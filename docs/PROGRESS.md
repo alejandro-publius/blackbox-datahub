@@ -19,6 +19,15 @@ Concise, append-only. Newest entries at the bottom. Survives context compaction.
 - Agents running: frontend wiring, eval harness, docs (ARCHITECTURE/DEMO_SCRIPT/JUDGE_SCORECARD/CLAUDE.md).
 - BLOCKER (human): ANTHROPIC_API_KEY needed in .env for live investigation runs — requested from Alex.
 
+## 2026-08-10 ~00:15 — P0 vertical slice PROVEN, frontend wired
+- THREE successful end-to-end runs (Claude Opus): root cause proven w/ cited evidence, FX distractor eliminated, targeted CASE-WHEN repair, 32/32 invariants, KPI 93.3x→0.93x, git fix branch, DataHub incident RESOLVED+docs+tag. Flagship eval: 9/9 checks, 129s, 22 tool calls (examples/sample-incident/).
+- Fixes applied along the way: temperature param removed (Claude 5 rejects it), updateIncidentStatus input type (IncidentStatusInput!), raise-ACTIVE-at-confirm, most-upstream prompt nudge (raw_orders now blamed), MCP Server = primary search transport + health enrichment (mcp_bridge.py), eval grading accepts raw/stg (tracks blamed_most_upstream).
+- Frontend COMPLETE: SSE hook (reconnect+poll fallback), 4 macro-states, inline-SVG revenue chart w/ baseline, RootCauseCard overlay, ResolutionCard (diff/git/writeback), reset flow. Build+lint green, verified against live backend.
+- README, DEVPOST.md draft, examples/ (real artifacts), scripts/demo_drill.py (Playwright judge-flow with screenshots) written.
+- Orphaned ACTIVE incident from run 1 resolved in DataHub. data/incidents/ now gitignored.
+- IN FLIGHT: eval battery (control/bad-repair/ablation), chromium install, security review agent, evals-methodology review agent.
+- NEXT: demo drill E2E + screenshots → fix review findings → judge-simulation review → video script polish → submit.
+
 ## Architecture decisions (running list)
 - Incident scenario: cents-vs-dollars semantic shift in raw_orders.amount → 100x revenue jump. Deterministic, seeded, resettable.
 - Local data stack: DuckDB + Python transformations (dbt only if time permits) + metric snapshot consumer.
