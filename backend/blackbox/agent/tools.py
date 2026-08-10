@@ -268,7 +268,16 @@ class ToolExecutor:
 
     # ---------------------------------------------------------- DataHub tools
 
+    def _datahub_disabled(self) -> dict | None:
+        from ..config import settings
+
+        if settings.blackbox_disable_datahub:
+            return {"error": "DataHub is unavailable (metadata service unreachable)"}
+        return None
+
     def t_datahub_search(self, query: str) -> Any:
+        if err := self._datahub_disabled():
+            return err
         from ..datahub import client as dh
 
         res = dh.search(query)
@@ -280,6 +289,8 @@ class ToolExecutor:
         return {"evidence_id": ev.id, "results": res}
 
     def t_datahub_get_dataset(self, urn: str) -> Any:
+        if err := self._datahub_disabled():
+            return err
         from ..datahub import client as dh
 
         res = dh.get_dataset(urn)
@@ -291,6 +302,8 @@ class ToolExecutor:
         return {"evidence_id": ev.id, "dataset": res}
 
     def t_datahub_lineage(self, urn: str, direction: str, max_hops: int = 3) -> Any:
+        if err := self._datahub_disabled():
+            return err
         from ..datahub import client as dh
 
         res = dh.lineage(urn, direction=direction, max_hops=max_hops)

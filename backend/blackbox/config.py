@@ -27,6 +27,9 @@ class Settings(BaseSettings):
 
     datahub_gms_url: str = "http://localhost:8080"
     datahub_gms_token: str = ""
+    # Eval ablation: when true, the investigator's DataHub tools return errors so we
+    # can measure how load-bearing DataHub context is (see evals/).
+    blackbox_disable_datahub: bool = False
 
     blackbox_api_port: int = 8400
 
