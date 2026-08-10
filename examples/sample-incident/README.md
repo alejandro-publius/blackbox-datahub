@@ -1,8 +1,12 @@
 # Sample incident run (unedited artifacts)
 
 Artifacts from a real autonomous BlackBox run against the seeded demo incident
-(eval scenario `positive_incident`, all 9 checks passed, 129s wall time, 22 tool calls).
-Nothing here is hand-written: these files are copied verbatim from the run's outputs.
+(eval scenario `positive_incident` in `evals/results/run_0007.json`: all 11
+machine-graded checks passed, 13 turns, 24 tool calls, ~180s wall time).
+Nothing here is hand-written: these files are copied verbatim from the run's
+outputs. The run started from a scrubbed DataHub (the harness hard-fails if any
+prior run's writeback note is still present — see `evals/harness.py`), so every
+conclusion was derived from lineage, contracts, and warehouse evidence alone.
 
 | File | What it is |
 |---|---|

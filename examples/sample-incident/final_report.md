@@ -1,34 +1,18 @@
-## Incident: 100x revenue spike on executive dashboard — NOT real. Root cause found, repaired, verified.
+## Incident resolved — the 100x revenue jump was NOT real.
 
-**Verdict:** genuine data incident (unit-semantics defect), now resolved. Revenue was never real.
+**SYMPTOM.** `marts.exec_revenue_metric.revenue` reported $2,737,323.50 for 2026-08-09 against an expected $29,349.39 (anomaly_ratio 93.3) [ev_316112b8a3]. Baseline comparison localized a razor-sharp onset: exactly **100.0x on 2026-08-07, 08-08 and 08-09**, and exactly 1.0x on every prior day. The decisive clue was that `order_count` was **identical** to baseline on all three days (334/349/327) while `aov_median_usd` was inflated 100x (6483.5 vs 64.84) [ev_5b29c51a06] — this was a per-unit *amount* defect, not volume, duplication or a fan-out join.
 
-### Symptom
-`marts.exec_revenue_metric.revenue` jumped from ~$27k/day to ~$2.74M/day (anomaly_ratio 93.3x) [ev_c957e5b969]. Onset was sharp and exact: 2026-08-06 ratio 1.0 → 2026-08-07 ratio **100.0**, holding at 100.0 on 08-08 and 08-09 [ev_86836d9b65].
+**LINEAGE.** DataHub UPSTREAM traversal from the KPI gave the map, with column-level edges: `raw.raw_orders.amount` → `staging.stg_orders.amount` → `marts.fct_revenue.revenue_usd` / `aov_median_usd` → `marts.exec_revenue_metric.revenue` [ev_684fe24f22]. Only two upstream branches can scale revenue, so I attacked both.
 
-The giveaway: **order_count matched the committed baseline exactly** on every affected day (334/334, 349/349, 327/327) while median AOV was exactly 100x baseline ($6,483.50 vs $64.84) [ev_86836d9b65]. Same orders, same customers, 100x the money — that is arithmetic, not commerce.
+**EVIDENCE.**
+- *FX branch eliminated:* `usd_rate` is unchanged across the onset — EUR 1.070478, GBP 1.270418, CAD 0.718958, USD 1.0 on both 2026-08-06 (healthy) and 2026-08-07..09 (anomalous) [ev_c830a5b78b].
+- *Orders branch confirmed at the raw layer:* profiling `raw.raw_orders.amount` by `payment_processor` showed the defect present in the source before any transformation — 2026-08-06 legacy_pos median 61.66 / shopgate 66.97, versus 2026-08-07..09 cloudpay_v2 medians 6373.5 / 5955.5 / 6076.0 [ev_51e45a03de]. The same shape reappears in `stg_orders` [ev_38951f4600], proving staging was a pass-through.
+- *Smoking gun:* all 1062 cloudpay_v2 rows are integer-valued (1062/1062), while legacy_pos and shopgate are integer-valued only ~1% of the time by chance (276/23470, 107/9941) [ev_f8a6a24cd4, ev_ddaaee27d2]. Integer-only values at 100x magnitude = minor-unit (cents) encoding.
 
-### Lineage (DataHub, UPSTREAM)
-`exec_revenue_metric` ← `marts.fct_revenue` ← {`staging.stg_orders`, `staging.stg_fx_rates`}; `stg_orders` ← `raw.raw_orders`, with column-level edges `raw_orders.amount` → `stg_orders.amount` → `fct_revenue.revenue_usd` → `exec_revenue_metric.revenue` [ev_c16d6ce4ca]. Two candidate branches: orders and FX.
+**ROOT CAUSE.** `raw.raw_orders.amount`. On 2026-08-07 the payments platform cut the **entire** order feed over to the new `cloudpay_v2` provider, which reports amounts in **cents** rather than the major currency units required by documented contract payments-platform v1.3 ("a decimal in MAJOR currency units, e.g. 49.99 = $49.99") [ev_94116a56d1]. Note the nuance: the provider rollout itself is documented and benign — the incident is purely the **unit-semantics breach**. Types still validated perfectly, so no schema or type check could have caught this; only the contract text exposed it.
 
-### Evidence
-- **FX branch eliminated:** `usd_rate` is identical across the onset (EUR 1.070478, GBP 1.270418, CAD 0.718958, USD 1.0 on 08-05→08-09) [ev_78f1e93383].
-- **Cohort isolated:** on 2026-08-07 the processor mix cuts over completely — `legacy_pos`/`shopgate` stop on 08-06, `cloudpay_v2` becomes 100% of orders (1,010 rows) [ev_a0cfe5c5b9][ev_e997bf3b56].
-- **Decisive fingerprint:** **all 1,010** cloudpay_v2 amounts are exactly integer-valued (334/334, 349/349, 327/327), versus ~1% for legacy processors (22,080/22,347 and 9,325/9,420 non-integer) [ev_e4865b6b04][ev_e997bf3b56]. Integer-only values at 100x scale = minor units (cents). Its min of 562 = $5.62 matches the $5.00 price floor of the other processors.
-- **Contract violation:** `raw_orders.amount` is documented as "MAJOR currency units as a decimal (e.g. 49.99 = $49.99). Contract v1.3", and `payment_processor` notes "cloudpay_v2 (provider migration began **2026-08-07**)" — the defect date equals the documented migration date [ev_c3a5049a70].
+**REPAIR.** `pipeline/transforms/stg_orders.sql` — divide `amount` by 100 (rounded to 2dp) **only** where `payment_processor = 'cloudpay_v2'`. Placed at the staging boundary because `stg_orders` is the documented "canonical input for all revenue reporting" and is where the major-units contract is asserted; raw stays an immutable landing zone. The fix is minimal, scoped precisely to the defective cohort, drops/hides no rows, and leaves legacy_pos/shopgate history bit-identical.
 
-### Root cause
-`raw.raw_orders.amount` — the **cloudpay_v2** provider migration began emitting amounts in **cents** instead of dollars on 2026-08-07, violating contract v1.3. `stg_orders.sql` passed the value through with a bare `CAST(amount AS DOUBLE)` and no unit normalization [ev_66dc99bbfc], and `fct_revenue.sql` multiplied it straight by `usd_rate` [ev_af1682b298], so the 100x error reached the executive KPI untouched.
+**VERIFICATION.** Warehouse rebuilt: **32/32 invariants pass**, KPI anomaly_ratio restored to **0.9327** (~1.0). Post-repair baseline comparison shows all three previously-anomalous days at ratio exactly **1.0** — 2026-08-07 $26,557.18, 08-08 $27,383.61, 08-09 $27,373.23 — with AOV back to 64.84 / 59.72 / 62.13 and pre-onset days untouched [ev_b1c51b4771]. Shipped on branch `blackbox/fix-inc_f8ca59e61c` @ 03ccf05; DataHub incident marked RESOLVED (FIXED).
 
-*Note:* the `stg_orders` DataHub description carried an "incident history" claiming this exact issue was already remediated. The transform source contained no normalization and the KPI was live-anomalous, so that documentation was stale — I treated it as a claim to verify, not as evidence.
-
-### Repair
-Patched `pipeline/transforms/stg_orders.sql`: a provider-scoped `CASE` converting only `cloudpay_v2` amounts to major units (`/100.0`). Minimal and honest — no rows filtered, no history rewritten, all 1,010 orders retained, legacy processors untouched, and the metric layer not manipulated to mask the number. Scoped by processor rather than date so future cloudpay_v2 batches stay correct.
-
-### Verification
-- **32/32 invariants passed**, 0 failures.
-- KPI anomaly ratio: 93.27x → **0.93x** (target ~1.0).
-- Post-rebuild, all three affected days reconcile to baseline exactly: 08-07 $26,557.18, 08-08 $27,383.61, 08-09 $27,373.23 — revenue_ratio and aov_ratio **1.0**, with order counts unchanged [ev_6d414ad32c].
-- Shipped on branch `blackbox/fix-inc_631dde6595` @ `838c73f`; DataHub incident marked RESOLVED.
-
-### Follow-up for humans
-Escalate to the payments-platform team (owner: Jordan Lee) — cloudpay_v2 should be fixed at source to emit major units; the staging clause is a compensating control and should be removed once upstream complies. Recommend a persistent invariant asserting per-processor AOV stays within a sane band, which would have caught this on day one.
+**FOLLOW-UP for the owners.** Jordan Lee (raw_orders) should push the unit fix upstream to the cloudpay_v2 provider so it emits decimals per contract v1.3; once that lands, the CASE branch in stg_orders must be removed or it will under-report by 100x. Priya Desai (stg_orders/KPI) should add a staging invariant asserting per-processor median order value stays within a sane band at provider onboarding — this class of defect passes every type check and would otherwise recur with the next provider migration.
