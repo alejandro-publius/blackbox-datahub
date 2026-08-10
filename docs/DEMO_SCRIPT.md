@@ -13,7 +13,7 @@ Target runtime: **2:55** (hard limit is *under* 3:00 — Devpost rule). Narratio
 5. **Browser tabs prepared:**
    - Tab 1: BlackBox command center (`localhost:3000`).
    - Tab 2: DataHub UI, on the `marts.exec_revenue_metric` dataset page (for the writeback reveal — refresh only when scripted).
-   - Terminal window (large font) with the incident-report curl pre-typed (see 0:15). *(The UI has no report form yet — the curl trigger IS the demo path.)*
+   - No terminal needed on screen: the incident is filed from the UI's **Investigate Incident** dialog (prefilled report text).
 6. **Recording:** 1080p or higher, hide bookmarks/notifications, dark OS theme to match the UI. Clean git state (`git status`), no leftover `blackbox/fix-*` branches.
 7. **Timing reality check:** the live investigation takes ~2–5 minutes of wall clock. Record it in full, then **speed up the investigation and repair segments** to fit; add a small "footage sped up" caption during accelerated sections. Every result shown is still real.
 
@@ -30,15 +30,10 @@ Target runtime: **2:55** (hard limit is *under* 3:00 — Devpost rule). Narratio
 
 ### 0:15 – 0:35 — Report the incident (39 words)
 
-**Clicks:** Switch to the terminal. Run:
-```bash
-curl -X POST localhost:8400/api/incidents -H 'Content-Type: application/json' \
-  -d '{"report_text": "Exec revenue dashboard is reading ~$2.7M against ~$29K expected. Nothing errored overnight. Please investigate."}'
-```
-Switch back to Tab 1. The stage pill flips `REPORTED → CONTEXT_DISCOVERY`; first evidence cards appear.
+**Clicks:** Click **Investigate Incident**. The dialog opens with the plain-English report prefilled: *"Revenue just jumped roughly 100x on the executive dashboard. Is this real?"* Click **Start Investigation**. The stage pill flips `REPORTED → CONTEXT_DISCOVERY`; first evidence cards appear.
 
 **Narration:**
-> I file one plain-English incident report against the API. BlackBox picks it up live: the stage pill flips to context discovery, and the agent's first move is not the data — it's DataHub, to learn what this KPI even means.
+> I file one plain-English incident report — the kind an on-call human actually writes. BlackBox picks it up live: the stage pill flips to context discovery, and the agent's first move is not the data — it's DataHub, to learn what this KPI even means.
 
 ### 0:35 – 1:15 — Live DataHub-driven investigation (91 words; sped-up footage)
 

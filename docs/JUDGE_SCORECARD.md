@@ -2,7 +2,7 @@
 
 Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md`. The **weakness** column is deliberately critical — it is the work queue, not marketing. Updated 2026-08-09.
 
-> **Stage One viability note (read first):** the rules require the OSS platform **plus at least one of** MCP Server, Agent Context Kit, DataHub Skills, or Analytics Agent. BlackBox currently integrates via the **Python SDK + GraphQL directly** — deep, but arguably not one of the four named tools. This is the single biggest submission risk in this document. Mitigation options: route the agent's read tools through the DataHub MCP Server, or document how the integration maps onto the Agent Context Kit guidance, before submission.
+> **Stage One viability note — RESOLVED 2026-08-10:** the rules require the OSS platform **plus at least one of** MCP Server, Agent Context Kit, DataHub Skills, or Analytics Agent. BlackBox now runs the **official DataHub MCP Server** (`uvx mcp-server-datahub`) inside the product as the investigator's discovery transport (`backend/blackbox/datahub/mcp_bridge.py`; search + entity health run through it, with GraphQL fallback so it's additive, not fragile), and the DataHub Skills registry plugin is part of the dev workflow. Evidence: `examples/sample-incident/incident_state.json` search evidence carries `"via": "datahub-mcp-server"`.
 
 ---
 
@@ -13,8 +13,8 @@ Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md
 | **What BlackBox does** | DataHub is load-bearing, both directions. Reads: GraphQL search, dataset context (schema + field-level data contracts + ownership + tags), lineage BFS with **column-level lineage from real `fineGrainedLineages` aspects**. Writes: SDK-v2 ingestion of introspected schemas + table/column lineage with real transform SQL attached; native OSS **incident** raise/resolve; docs remediation note; `blackbox-remediated` tag. Root-cause confirmation is *rejected* unless DataHub lineage evidence is cited — the graph is structurally required, not decorative. An ablation flag (`BLACKBOX_DISABLE_DATAHUB`) exists to prove it. |
 | **Evidence in repo** | `backend/blackbox/datahub/client.py`, `backend/blackbox/datahub/ingest.py`, `backend/blackbox/datahub/writeback.py`, `backend/blackbox/agent/tools.py` (`t_confirm_root_cause`, `_datahub_disabled`), `backend/blackbox/config.py` |
 | **Demo moment** | 0:35–1:15 (lineage graph drawn from DataHub) and 2:10–2:35 (resolved incident + docs note + tag shown in DataHub's own UI) |
-| **Current weakness** | **Does not use any of the four named integrations (MCP Server / Agent Context Kit / Skills / Analytics Agent) — a literal reading of the rules could fail Stage One.** Also: all metadata is self-ingested for one 8-table synthetic pipeline; the ablation eval that would *quantify* "load-bearing" has not been run (`evals/results/` is empty). |
-| **Next improvement** | Swap or dual-path the three read tools onto the DataHub MCP Server (same GraphQL underneath); run and commit the ablation eval results. |
+| **Current weakness** | All metadata is self-ingested for one 8-table synthetic pipeline (no run against a non-authored metadata graph). MCP is used for discovery/health but lineage BFS + writeback go through GraphQL/SDK rather than MCP end-to-end. |
+| **Next improvement** | Investigation-only run against a non-authored fixture (e.g. the `fiction-retail` datapack); route lineage reads through MCP `get_lineage` as well. |
 
 ## 2. Technical Execution
 
@@ -23,8 +23,8 @@ Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md
 | **What BlackBox does** | Works end-to-end: report → investigation → machine-validated root cause → operator-authorized repair → warehouse rebuild → full 32-test invariant suite + KPI gate → git branch via temp worktree → DataHub writeback → live SSE UI. Evidence-gated state machine (forward-only stages, terminal `NO_INCIDENT`/`FAILED`), unverified-patch rollback, read-only SQL guard, path-restricted repairs, byte-identical resettable fixture, JSONL agent transcripts. |
 | **Evidence in repo** | `backend/blackbox/agent/investigator.py`, `agent/tools.py`, `repair.py`, `warehouse.py`, `store.py`, `models.py`, `pipeline/invariants/test_invariants.py` (32 collected tests), `pipeline/README.md` |
 | **Demo moment** | 1:40–2:10 (real diff, 32/32 green, KPI 93.3x → ~1.0x) |
-| **Current weakness** | **Proven on exactly one seeded scenario.** No committed evidence of robustness: no backend unit tests (`tests/` referenced in pyproject but absent), no eval harness runs, no record of the agent handling the healthy-mode / no-incident path or a failed-verification iteration. Repairs limited to single-file `pipeline/transforms/*.sql`; UI lacks the incident-report form (curl only); `try_create_pr` unwired; background threads are fire-and-forget (no cancellation/timeout surfacing to the UI). |
-| **Next improvement** | Run and commit at least: one incident-mode run, one healthy-mode (`NO_INCIDENT`) run, one DataHub-ablation run — transcripts + results in `evals/results/`. Wire the report form. |
+| **Current weakness** | Repairs limited to single-file `pipeline/transforms/*.sql`; `try_create_pr` unwired (no live GitHub PR in the demo); background threads are fire-and-forget (no cancellation/timeout surfacing to the UI); positive-path consistency measured over a handful of runs, not a large N. |
+| **Next improvement** | Multi-trial consistency stats (`--trials 5`); surface investigation-thread errors as UI toasts; wire `try_create_pr` for a real PR artifact. *(Since first draft: 14 gate unit tests committed in `tests/`, full eval battery committed in `evals/results/` — positive 9/9, control NO_INCIDENT, bad-repair rejected, ablation FAILED-without-DataHub — and the UI report dialog is wired.)* |
 
 ## 3. Originality
 
@@ -63,8 +63,8 @@ Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md
 | **Fit** | Strong on the category's literal definition: the agent *reads DataHub to understand what's connected to what* (search/context/lineage tools), *takes action* (applies a verified patch, commits a branch, rebuilds the warehouse), and *writes results back* (incident entity, docs note, tag). Autonomy is bounded by an explicit human authorization gate — defensible, and worth framing as a feature. |
 | **Evidence in repo** | `agent/tools.py`, `repair.py`, `datahub/writeback.py`; two-phase flow in `api.py` |
 | **Demo moment** | Entire arc; especially 2:10–2:35 (writeback in DataHub UI) |
-| **Current weakness** | The category examples name the MCP Server / Agent Context Kit as the mechanism, which BlackBox doesn't use (see Stage One note). "Real work" is demonstrated on synthetic work — one pipeline the authors built. |
-| **Next improvement** | MCP-server routing for reads; one run against a non-authored fixture (e.g. the `fiction-retail` datapack) even if investigation-only. |
+| **Current weakness** | "Real work" is demonstrated on synthetic work — one pipeline the authors built (disclosed, but a judge may discount it). |
+| **Next improvement** | One run against a non-authored fixture (e.g. the `fiction-retail` datapack) even if investigation-only. *(MCP Server routing for reads: done — see Stage One note.)* |
 
 ## Category fit B — "Metadata-Aware Code Generation & Development"
 
@@ -87,6 +87,7 @@ Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md
 
 ## Three weakest cells (current triage order)
 
-1. **Use of DataHub / Stage One:** no MCP Server / Agent Context Kit / Skills / Analytics Agent usage — a rules-literal viability risk despite deep SDK+GraphQL integration.
-2. **Submission Quality:** README stub, no video, no `examples/` folder, ~19 hours before the deadline.
-3. **Technical Execution:** zero committed run evidence — no eval results, no NO_INCIDENT path demonstration, no ablation numbers backing the "DataHub is load-bearing" claim.
+1. ~~Use of DataHub / Stage One~~ **RESOLVED:** official MCP Server runs inside the product (discovery transport) + Skills plugin in dev workflow.
+2. **Submission Quality:** video still unrecorded (script ready in `docs/DEMO_SCRIPT.md`); screenshots pending the demo drill. README and `examples/` are done.
+3. ~~Technical Execution run evidence~~ **RESOLVED:** full eval battery committed (`evals/results/`): positive 9/9 checks, control NO_INCIDENT (no false positive), bad-repair rejected by immutability invariants, DataHub-ablation FAILED (load-bearing proven). 14 gate unit tests in `tests/`.
+4. **Remaining:** demo on self-authored synthetic pipeline only; no live PR artifact; single-digit N on consistency.
