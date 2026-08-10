@@ -56,7 +56,7 @@ Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md
 | **Current weakness** | Setup requires four moving parts (Docker/DataHub, uv backend, npm frontend, Anthropic key) — mitigated by `make demo-run` and by committed run artifacts so a judge without an API key can still inspect a real run. Remaining: the demo video must be recorded and published before the deadline (script ready, timed to 2:55). |
 | **Next improvement** | Write the README with copy-paste judge instructions; record the video; commit `examples/` (a real incident JSON, transcript, diff, and DataHub screenshots); add `make demo-run`. |
 
-## Category fit A — "Agents That Do Real Work"
+## Submitted challenge — "Agents That Do Real Work"
 
 | | |
 |---|---|
@@ -66,7 +66,9 @@ Self-assessment against the official criteria in `docs/HACKATHON_REQUIREMENTS.md
 | **Current weakness** | "Real work" is demonstrated on synthetic work — one pipeline the authors built (disclosed, but a judge may discount it). |
 | **Next improvement** | One run against a non-authored fixture (e.g. the `fiction-retail` datapack) even if investigation-only. *(MCP Server routing for reads: done — see Stage One note.)* |
 
-## Category fit B — "Metadata-Aware Code Generation & Development"
+## Also demonstrates — "Metadata-Aware Code Generation & Development"
+
+> Not submitted as a second challenge (Devpost allows one). Recorded here because the capability is real and judges of the submitted challenge may weigh it.
 
 | | |
 |---|---|

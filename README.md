@@ -14,7 +14,7 @@
 [![Invariants](https://img.shields.io/badge/invariants-32%2F32%20after%20repair-brightgreen)](evals/results/)
 [![Eval](https://img.shields.io/badge/flagship%20eval-11%2F11%20checks-brightgreen)](evals/results/run_0007.json)
 
-Built for **[Build with DataHub: The Agent Hackathon](https://datahub.devpost.com)** · Categories: **Agents That Do Real Work** + **Metadata-Aware Code Generation & Development**
+Built for **[Build with DataHub: The Agent Hackathon](https://datahub.devpost.com)** · Submitted challenge: **Agents That Do Real Work** · Also demonstrates: **Metadata-Aware Code Generation & Development**
 
 The worst data incidents don't crash anything. A payment provider quietly starts reporting `amount` in cents instead of dollars. Every schema still validates. Every job stays green. The executive revenue dashboard is wrong by 100× — and nobody notices for days.
 
@@ -78,10 +78,16 @@ flowchart TB
     GATE{{"Evidence gates<br/><i>machine-checked citations</i>"}}:::gate
 
     subgraph TOOLS["Deterministic tools — the only source of facts"]
-        DH["DataHub client<br/><i>MCP Server · GraphQL · SDK v2</i>"]:::tool
+        DH["DataHub client"]:::tool
         WH["DuckDB warehouse<br/><i>profiling · baselines · read-only SQL</i>"]:::tool
         PT["pytest<br/><i>32 pipeline invariants</i>"]:::tool
         GIT["git worktree<br/><i>difflib patch · fix branch</i>"]:::tool
+    end
+
+    subgraph ROUTES["Alternative routes to ONE DataHub graph — not independent sources"]
+        MCP["① Official MCP Server<br/><i>search · context · lineage hops</i>"]:::route
+        ACK["② Agent Context Kit<br/><i>embedded Python, same reads</i>"]:::route
+        GQL["③ GraphQL + aspect reads<br/><i>fallback · fineGrainedLineages</i>"]:::route
     end
 
     HUB[("DataHub OSS v1.7<br/>schemas · contracts · ownership<br/>table + column lineage")]:::hub
@@ -91,17 +97,24 @@ flowchart TB
     UI <-->|"live state stream"| API
     API --> LLM
     LLM -->|"tool calls"| TOOLS
-    TOOLS -->|"EvidenceItems (facts)"| GATE
+    TOOLS -->|"EvidenceItems (facts, transport-tagged)"| GATE
     GATE -->|"accepted / rejected"| LLM
 
-    DH <-->|"search · context · lineage BFS"| HUB
+    DH --> MCP --> HUB
+    DH -.->|"fallback"| ACK --> HUB
+    DH -.->|"fallback"| GQL --> HUB
+    GQL -.->|"column-level lineage<br/>comes from here, not MCP"| HUB
+
     WH <--> PIPE
     GIT -->|"applies repair"| PIPE
     PIPE -->|"rebuild"| PT
     PT -->|"32/32 + KPI in range<br/>= verified"| GIT
     GIT -->|"fix branch + commit"| ART[/"Git repair artifact"/]:::out
-    GATE -->|"root cause proven"| HUB
+    ART -.->|"opt-in BLACKBOX_CREATE_PR<br/>post-verification, non-gating"| PR[/"Real GitHub PR"/]:::out
+    GATE -->|"root cause proven → ACTIVE incident"| HUB
     PT -->|"resolution + remediation note + tag"| HUB
+
+    API -.->|"optional · BLACKBOX_TRACING<br/>observability only, never correctness"| OTEL(["Phoenix / OpenTelemetry<br/>one incident = one trace"]):::opt
 
     classDef human fill:#1f2937,stroke:#6b7280,color:#f9fafb
     classDef app fill:#0c4a6e,stroke:#38bdf8,color:#f0f9ff
@@ -111,6 +124,8 @@ flowchart TB
     classDef hub fill:#1e3a8a,stroke:#60a5fa,color:#eff6ff
     classDef data fill:#292524,stroke:#a8a29e,color:#fafaf9
     classDef out fill:#713f12,stroke:#facc15,color:#fefce8
+    classDef route fill:#134e4a,stroke:#2dd4bf,color:#f0fdfa
+    classDef opt fill:#1c1917,stroke:#57534e,color:#a8a29e
 ```
 
 ### Why this architecture matters

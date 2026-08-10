@@ -33,21 +33,40 @@
                │                     │                      │                     │
                ▼                     ▼                      ▼                     ▼
    ┌──────────────────┐  ┌────────────────────┐  ┌─────────────────────┐  ┌───────────────┐
-   │ DuckDB warehouse │  │ pipeline           │  │ DataHub OSS         │  │ git           │
+   │ DuckDB warehouse │  │ pipeline           │  │ DataHub client      │  │ git           │
    │ warehouse.py     │◄─│ transforms/*.sql   │  │ datahub/            │  │ repair.py     │
-   │ • profiling      │  │ + 32 pytest        │  │ • ingest.py (SDK)   │  │ temp worktree │
-   │ • baselines      │  │   invariants       │  │ • client.py (read,  │  │ → branch      │
-   │ • read-only SQL  │  │ (repair target;    │  │   GraphQL+aspects)  │  │ blackbox/     │
-   │ • KPI snapshot   │  │  rebuilt on fix)   │  │ • writeback.py      │  │ fix-<id>      │
-   └──────────────────┘  └────────────────────┘  │   (incidents, docs, │  └───────────────┘
-                                                 │    tags)            │
-                                                 └─────────────────────┘
+   │ • profiling      │  │ + 32 pytest        │  │ • ingest.py (SDK v2)│  │ temp worktree │
+   │ • baselines      │  │   invariants       │  │ • client.py (read)  │  │ → branch      │
+   │ • read-only SQL  │  │ (repair target;    │  │ • writeback.py      │  │ blackbox/     │
+   │ • KPI snapshot   │  │  rebuilt on fix)   │  │   (incidents, docs, │  │ fix-<id>      │
+   └──────────────────┘  └────────────────────┘  │    tags)            │  └───────┬───────┘
+                                                 └──────────┬──────────┘          │
+                                                            │ reads try in order  │ opt-in
+                                                            ▼                     ▼
+      ┌───────────────────────────────────────────────────────────────┐  ┌──────────────────┐
+      │ ① official MCP Server  →  ② Agent Context Kit  →  ③ GraphQL   │  │ real GitHub PR   │
+      │    (uvx, interoperable)   (embedded Python)      + aspects    │  │ BLACKBOX_CREATE_ │
+      │                                                               │  │ PR, default off; │
+      │ Alternative ROUTES to ONE DataHub graph — not independent      │  │ post-verification│
+      │ sources. Each EvidenceItem records which one produced it.      │  │ and non-gating   │
+      │ Column-level lineage (fineGrainedLineages) comes from ③ only.  │  └──────────────────┘
+      └───────────────────────────────┬───────────────────────────────┘
+                                      ▼
+                        ┌─────────────────────────────┐
+                        │ DataHub OSS v1.7  :8080     │
+                        │ schemas · contracts · owners│
+                        │ table + column lineage      │
+                        │ ◄── incident / docs / tag   │
+                        └─────────────────────────────┘
+
+   optional, never part of correctness:
+   FastAPI ⇢ Phoenix / OpenTelemetry (BLACKBOX_TRACING, default off) — one incident = one trace
 ```
 
 Division of labor, enforced in code:
 
 - **Claude decides *what to look at next*** — hypotheses, elimination order, repair design. It never produces a displayed number.
-- **Deterministic tools produce *all facts*** — DuckDB profiling and read-only SQL (`warehouse.py`), baseline comparisons against a committed healthy record, DataHub GraphQL search/context/lineage (`datahub/client.py`), pytest invariant runs, `difflib` diffs. Each fact-producing call records an `EvidenceItem` and returns its `evidence_id` for citation (`agent/tools.py`).
+- **Deterministic tools produce *all facts*** — DuckDB profiling and read-only SQL (`warehouse.py`), baseline comparisons against a committed healthy record, DataHub reads over the MCP → ACK → GraphQL chain (`datahub/client.py`, `mcp_bridge.py`, `context_kit.py`), pytest invariant runs, `difflib` diffs. Each fact-producing call records an `EvidenceItem` — with the `transport` that produced it — and returns its `evidence_id` for citation (`agent/tools.py`).
 - **The state machine + evidence gates keep it honest** — workflow tools (`confirm_root_cause`, `update_hypothesis`, `declare_no_incident`) validate cited evidence before any stage transition is allowed.
 
 ## 2. The demo fixture (deterministic by construction)

@@ -4,7 +4,8 @@
 
 **Tagline (≤60 chars):** Sentry for your data stack, powered by DataHub lineage.
 
-**Categories:** Agents That Do Real Work · Metadata-Aware Code Generation & Development
+**Submitted challenge:** Agents That Do Real Work
+**Also demonstrates:** Metadata-Aware Code Generation & Development (the agent authors, executes and verifies real transform SQL from DataHub metadata — see "How we built it")
 
 ---
 
@@ -75,6 +76,6 @@ Python, FastAPI, Pydantic, DuckDB, pytest, Anthropic Claude (Opus), DataHub OSS 
 - [ ] Public repo URL: https://github.com/alejandro-publius/blackbox-datahub (Apache-2.0 visible)
 - [ ] Video: <3:00, public YouTube/Vimeo, shows the working app (script: docs/DEMO_SCRIPT.md)
 - [ ] 3–5 screenshots (intake / investigation / root cause / resolution / DataHub incident)
-- [ ] Categories selected: Agents That Do Real Work; Metadata-Aware Code Generation & Development
+- [ ] Challenge selected: **Agents That Do Real Work** (single submitted challenge; the code-gen fit is described in the write-up, not selected as a second category)
 - [ ] Testing instructions incl. `make` quickstart + examples/ pointer
 - [ ] Feedback survey (bonus)
