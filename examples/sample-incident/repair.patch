@@ -1,32 +1,28 @@
 --- a/pipeline/transforms/stg_orders.sql
 +++ b/pipeline/transforms/stg_orders.sql
-@@ -1,5 +1,18 @@
+@@ -1,5 +1,14 @@
  -- stg_orders: cleaned order stream.
  -- Excludes cancelled and refunded orders from the revenue path.
 +--
-+-- UNIT NORMALIZATION (incident 2026-08-07, exec revenue 100x):
-+-- The payments platform rolled out a new provider, `cloudpay_v2`, on 2026-08-07.
-+-- Contrary to payments-platform contract v1.3 (`amount` is a decimal in MAJOR
-+-- currency units, e.g. 49.99 = $49.99), cloudpay_v2 reports `amount` in MINOR
-+-- units (cents): 100% of its rows are integer-valued and its median order is
-+-- ~6076 where legacy_pos/shopgate report ~62. Left uncorrected this inflated
-+-- revenue_usd and aov_median_usd by exactly 100x.
-+--
-+-- We normalize cloudpay_v2 back to major units here, at the staging boundary
-+-- where the "major currency units" contract is asserted. legacy_pos and
-+-- shopgate are passed through untouched so healthy history is unchanged.
-+-- Remove this branch only once the provider is fixed upstream to emit decimals.
++-- UNIT NORMALIZATION (incident 2026-08-07, cloudpay_v2 cutover):
++-- The raw.raw_orders.amount contract (v1.3) requires MAJOR currency units as a
++-- decimal (e.g. 49.99 = $49.99). The cloudpay_v2 provider, rolled out on
++-- 2026-08-07, instead emits MINOR units (integer cents), which inflated all
++-- downstream revenue/AOV by exactly 100x. We normalize that provider's cohort
++-- back to major units here, at the ingestion-contract boundary. The rescale is
++-- scoped strictly to payment_processor = 'cloudpay_v2'; legacy_pos and
++-- shopgate feeds are already contract-compliant and pass through unchanged.
  CREATE OR REPLACE TABLE staging.stg_orders AS
  SELECT
      order_id,
-@@ -7,7 +20,11 @@
+@@ -7,7 +16,11 @@
      CAST(CAST(order_ts AS TIMESTAMP) AS DATE) AS order_day,
      customer_id,
      currency,
 -    CAST(amount AS DOUBLE) AS amount,
 +    CASE
 +        WHEN payment_processor = 'cloudpay_v2'
-+            THEN ROUND(CAST(amount AS DOUBLE) / 100.0, 2)
++            THEN CAST(amount AS DOUBLE) / 100.0
 +        ELSE CAST(amount AS DOUBLE)
 +    END AS amount,
      payment_processor,

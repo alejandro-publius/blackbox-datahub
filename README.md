@@ -103,13 +103,16 @@ Deep version — state machine, evidence-gating internals, verification loop: **
 
 | Surface | Used for | Where |
 |---|---|---|
-| **Official DataHub MCP Server** (`uvx mcp-server-datahub`) | the agent's entity discovery, entity context, and **lineage BFS** — BlackBox is a real MCP client, with GraphQL fallback | [`datahub/mcp_bridge.py`](backend/blackbox/datahub/mcp_bridge.py), [`client.py`](backend/blackbox/datahub/client.py) |
+| **Official DataHub MCP Server** (`uvx mcp-server-datahub`) | the agent's entity discovery, entity context, and **lineage BFS** — BlackBox is a real MCP client of DataHub's agent surface | [`datahub/mcp_bridge.py`](backend/blackbox/datahub/mcp_bridge.py), [`client.py`](backend/blackbox/datahub/client.py) |
+| **Agent Context Kit** (`datahub-agent-context`) | the same reads over a **native embedded Python path** — no subprocess, no stdio hop; second in the transport chain | [`datahub/context_kit.py`](backend/blackbox/datahub/context_kit.py) |
 | GraphQL API | dataset context, schema contracts, fallback lineage | [`client.py`](backend/blackbox/datahub/client.py) |
 | **Column-level lineage** (`fineGrainedLineages`) | tracing the KPI to the exact upstream field | `client.py` (read) · `ingest.py` (emit) |
 | Python SDK v2 | ingestion: warehouse-introspected schemas, data-contract field docs, ownership, tags, table **and** column lineage with the real transform SQL attached | [`datahub/ingest.py`](backend/blackbox/datahub/ingest.py) |
 | **Incidents API** (`raiseIncident` / `updateIncidentStatus`) | ACTIVE incident the moment the cause is proven → `RESOLVED/FIXED` after verified repair | [`datahub/writeback.py`](backend/blackbox/datahub/writeback.py) |
 | Dataset docs + tags | durable remediation note + `blackbox-remediated` tag | `writeback.py` |
 | DataHub Skills | development workflow (skills registry plugin) | dev environment |
+
+**Two transports, one graph.** DataHub's context graph is reachable both through the interoperable **MCP Server** and through the **Agent Context Kit**'s embedded Python path; reads try MCP → ACK → GraphQL and each fact records the transport that produced it (`EvidenceItem.transport`, visible in [`examples/sample-incident/`](examples/sample-incident/)). That is provenance for the reader, **not** a claim of independent corroboration — every transport ultimately reads the same DataHub instance. The kit's Cloud-gated tools (`ask_datahub_chat`, document search) are deliberately unused; this targets OSS/Core, and a test enforces it.
 
 **The honest ablation.** `BLACKBOX_DISABLE_DATAHUB=true` disables the DataHub tools *and* writeback, and relaxes the confirm gate so the test isn't circular. Measured result: on this 5-transform fixture the ablated agent can still brute-force a correct diagnosis by reading transform files. We report that instead of claiming helplessness. What it loses is what matters at scale — the topology map (unworkable across thousands of models), the documented contract that makes the violation *provable*, every DataHub-grounded citation, and any durable record of the incident.
 
@@ -175,6 +178,21 @@ DuckDB is here because the demo must run on a judge's laptop in one command. The
 | Repair surface (`repair._resolve_transform`) | `pipeline/transforms/*.sql` | dbt models directory; the existing git-worktree flow opens the PR |
 
 DataHub, the agent loop, the evidence gates, and the writeback are unchanged by those swaps. What stays honest: we demonstrate on a pipeline we authored, so treat the *incident realism* as illustrative and the *machinery* as the contribution.
+
+## Observability (optional)
+
+An investigation is a long autonomous trajectory, so it is traceable end to end. With the `tracing` extra installed and `BLACKBOX_TRACING=true`, one incident renders as **one trace** in a self-hosted [Arize Phoenix](https://github.com/Arize-ai/phoenix): an agent-phase span containing a span per deterministic tool call and per Anthropic call (auto-instrumented via OpenInference), annotated with the outcomes that matter — root-cause gate result, `N/N` invariants, post-repair KPI ratio, writeback status, repair branch.
+
+```bash
+uv sync --extra tracing && uv run phoenix serve      # UI on :6006
+BLACKBOX_TRACING=true make demo-run
+```
+
+Off by default and genuinely optional: with the flag unset no tracing package is imported and every hook is a no-op — pinned by [7 regression tests](tests/test_tracing.py), one of which reproduces a real bug this caught (a double-`yield` on the span error path that turned any exception inside a traced block into a failed investigation). No secrets or raw rows are recorded.
+
+## CI
+
+Every push runs backend unit tests, the healthy fixture's 32/32 invariants, frontend lint + build, and a secrets scan — all deterministic, no API key or live DataHub required, so the checks also pass on a fork ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## For judges
 
