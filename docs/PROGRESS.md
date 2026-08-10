@@ -28,6 +28,13 @@ Concise, append-only. Newest entries at the bottom. Survives context compaction.
 - IN FLIGHT: eval battery (control/bad-repair/ablation), chromium install, security review agent, evals-methodology review agent.
 - NEXT: demo drill E2E + screenshots → fix review findings → judge-simulation review → video script polish → submit.
 
+## 2026-08-10 ~02:30 — Adversarial review fix cycle complete
+- Security review: 0 critical (git history clean). HIGH fixed: run_sql filesystem exfiltration (enable_external_access=false + denylist + tests). Reminder: rotate Anthropic key post-hackathon.
+- Evals methodology review (harsh, excellent): C1 writeback-note contamination (prior run's remediation note on dataset docs = answer key for next run) → reset.py scrubs DataHub state on every reset, harness hard-fails on contamination, demo-reset endpoint scrubs too. C2 circular ablation → confirm-gate DataHub requirements relax in ablation mode; scenario grades identification accuracy honestly. H2 metadata leaks trimmed ("unit/semantic drift" doc phrase removed, runbook date fuzzed, prompt repair-shape softened). H3 grader hardened (post-repair days must match committed baseline ±1%; targeted=provider-scoped; single-file diff). M3 field↔asset binding in confirm gate. Ablation writeback inconsistency fixed (flag now gates writes too).
+- Fresh UNCONTAMINATED flagship run: 11/11 checks (stricter grader), WRITEBACK_COMPLETE, 145s. Honest ablation finding: agent can still brute-force diagnosis from transform files on this small fixture — README/DEVPOST wording corrected to the measured claim (DataHub = scalable map + contract evidence + writeback, not "agent is helpless").
+- run_evals now archives full incident artifacts per scenario (evals/results/artifacts/).
+- Session restart (re-login) orphaned servers; restarted. Drill click bug root-caused: top-bar button behind overlay backdrop; .last targets the card CTA (verified in preview).
+
 ## Architecture decisions (running list)
 - Incident scenario: cents-vs-dollars semantic shift in raw_orders.amount → 100x revenue jump. Deterministic, seeded, resettable.
 - Local data stack: DuckDB + Python transformations (dbt only if time permits) + metric snapshot consumer.

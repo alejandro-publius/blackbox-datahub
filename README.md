@@ -57,7 +57,7 @@ make evals                       # eval battery (see evals/README.md)
 
 ## How DataHub is load-bearing
 
-BlackBox does not work without DataHub — topology, contracts, and the writeback target all live there (the `BLACKBOX_DISABLE_DATAHUB=true` ablation in `evals/` demonstrates it).
+Topology, data contracts, and the writeback target all live in DataHub. The `BLACKBOX_DISABLE_DATAHUB=true` ablation in `evals/` measures exactly what it contributes: the ablated agent loses the lineage map (falling back to reading pipeline source files — viable in this 5-transform demo, unscalable in a real estate), loses the documented contract that turns "weird numbers" into a provable contract violation, produces zero DataHub-grounded evidence citations, and cannot raise or resolve the incident. On this small fixture it can still brute-force the right diagnosis from the files — we report that honestly; what DataHub provides is the scalable map, the contract evidence, and the durable institutional memory.
 
 | Surface | Used for | Where |
 |---|---|---|
@@ -89,7 +89,7 @@ Next.js command center ── SSE ── FastAPI ── Investigator (Claude, to
 
 ## Evals
 
-`evals/` contains a deterministic harness: seeded-incident diagnosis, a no-incident control (healthy data must not produce an invented incident), a bad-repair rejection proof (a naive blanket fix is caught by historical-immutability invariants), and a DataHub-ablation run. Results live in `evals/results/`.
+`evals/` contains a deterministic harness: seeded-incident diagnosis (graded on 11 machine-checked criteria, including that the repair restores the committed baseline to within 1% — not merely the loose KPI window), a no-incident control (healthy data must not produce an invented incident), a bad-repair rejection proof (a naive blanket fix is caught by historical-immutability invariants), and a DataHub-ablation comparison. Every conclusion is graded by deterministic code — never by an LLM judging itself. An independent adversarial review of the methodology ran during development; its critical findings (a DataHub writeback note that could contaminate later runs; a circular ablation) were fixed, and the harness now scrubs BlackBox-written DataHub state before every scenario and hard-fails on contamination. Results + full per-run artifacts live in `evals/results/`.
 
 ## Repo map
 

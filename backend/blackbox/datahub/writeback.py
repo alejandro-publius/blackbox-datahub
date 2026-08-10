@@ -27,6 +27,10 @@ mutation addTags($input: AddTagsInput!) { addTags(input: $input) }
 
 def raise_incident(state: IncidentState) -> Writeback:
     """Raise a real ACTIVE incident in DataHub on the root-cause + affected assets."""
+    from ..config import settings
+
+    if settings.blackbox_disable_datahub:
+        raise RuntimeError("DataHub is unavailable (metadata service unreachable)")
     rc = state.root_cause
     if rc is None:
         raise ValueError("no confirmed root cause")
@@ -67,6 +71,10 @@ def raise_incident(state: IncidentState) -> Writeback:
 def resolve_incident(state: IncidentState) -> Writeback:
     """Mark the DataHub incident RESOLVED/FIXED with the full remediation record,
     and leave durable context on the root-cause dataset."""
+    from ..config import settings
+
+    if settings.blackbox_disable_datahub:
+        raise RuntimeError("DataHub is unavailable (metadata service unreachable)")
     wb = state.writeback
     if wb is None or not wb.incident_urn:
         wb = raise_incident(state)

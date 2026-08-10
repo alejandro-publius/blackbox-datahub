@@ -31,13 +31,14 @@ Demo result: revenue 93.3× → 0.93×, 32/32 invariants green, real incident ur
 - **DataHub (load-bearing):** OSS quickstart v1.7.0. Metadata ingested with the Python SDK v2 — schemas introspected from the live warehouse, contract docs on fields, ownership, tags, and table+column lineage with the real transform SQL attached. Reads via the official MCP Server + GraphQL; writeback via the native Incidents API.
 - **Demo fixture:** a deterministic DuckDB retail pipeline (raw → staging → marts → executive KPI) with a seeded, disclosed semantic failure and a distractor; byte-identical regeneration and one-command reset.
 - **Frontend:** Next.js + TypeScript + React Flow command center streaming the investigation live over SSE: lineage traversal, hypotheses, evidence timeline, the ROOT CAUSE CONFIRMED reveal, diff viewer, before/after KPI, and writeback confirmation.
-- **Evals:** a deterministic harness proving the four things demos usually hand-wave: the incident is correctly diagnosed and repaired (9/9 checks); healthy data does **not** produce an invented incident; a superficially-plausible bad repair is **rejected** by historical invariants; and a DataHub-ablated agent fails — DataHub context is load-bearing, not decorative.
+- **Evals:** a deterministic harness proving the four things demos usually hand-wave: the incident is correctly diagnosed and repaired (11/11 machine-graded checks, incl. restoring the committed baseline within 1%); healthy data does **not** produce an invented incident; a superficially-plausible bad repair is **rejected** by historical invariants; and a DataHub-ablation run measures what the metadata graph contributes (the lineage map, the contract evidence that makes the root cause *provable*, and the incident writeback — reported honestly, including that a small fixture can be brute-forced from source files).
 
 ## Challenges we ran into
 
 - Making the agent honest: LLMs happily declare root causes. We gated every conclusion behind evidence-citation checks enforced in code, and made verification full-suite (a fix that restores the top-line while corrupting history is rejected).
 - Silent quickstart hang on colima: docker-py ignores docker CLI contexts (needs `DOCKER_HOST`). Diagnosed, worked around, and logged as feedback with a proposed fix (docs/DATAHUB_FEEDBACK_LOG.md).
 - GraphQL schema drift (incident mutations' input types, v1.7 filter changes) — resolved against the live schema.
+- Our own red team caught our agent cheating: the DataHub writeback (a remediation note on the dataset docs) from one run became the *answer key* for the next — durable institutional memory and clean-room evaluation are in tension. We now scrub BlackBox-written DataHub state on every reset and hard-fail evals on contamination. The agent, to its credit, had flagged the stale note as "a claim to verify, not evidence" and re-proved everything from data.
 
 ## Accomplishments we're proud of
 

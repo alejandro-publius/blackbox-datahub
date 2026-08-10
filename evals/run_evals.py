@@ -82,6 +82,22 @@ def _run_one(name: str, trial: int, disable_datahub: bool, out_path: Path, timeo
         out_path.unlink(missing_ok=True)
 
 
+def _archive_incident_artifacts(run_seq: int, scenario: str, trial: int) -> None:
+    """Incident records are cleared by the next scenario's reset — archive them
+    right away so every eval run leaves inspectable evidence (full IncidentState
+    + agent transcript) under evals/results/artifacts/."""
+    import shutil
+
+    src = REPO_ROOT / "data" / "incidents"
+    files = list(src.glob("inc_*.json")) + list(src.glob("inc_*.transcript.jsonl"))
+    if not files:
+        return
+    dst = RESULTS_DIR / "artifacts" / f"run_{run_seq:04d}" / f"{scenario}_t{trial}"
+    dst.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        shutil.copy2(f, dst / f.name)
+
+
 def _final_safety_restore() -> None:
     """If a killed subprocess left the transforms dirty, restore + rebuild.
     (Each run_one restores after itself; this only covers hard kills.)"""
@@ -207,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
             tmp = RESULTS_DIR / f".tmp_run{run_seq:04d}_{name}_t{trial}.json"
             result = _run_one(name, trial, scenario.disable_datahub, tmp, args.timeout)
             results.append(result)
+            _archive_incident_artifacts(run_seq, name, trial)
             print(f"=== {label}: {result['status']} ===\n", flush=True)
 
     _final_safety_restore()

@@ -95,16 +95,12 @@ def main() -> int:
             shoot(page, "03-rootcause.png")
 
         print("ACT 4 — repair & verify")
-        # the root-cause overlay covers the top bar; dismiss it, then use the
-        # persistent Repair & Verify button
-        try:
-            page.locator("[aria-label*='close' i], button:has-text('✕'), button:has-text('×')").first.click(
-                timeout=4000
-            )
-        except Exception:
-            page.keyboard.press("Escape")
-        page.wait_for_timeout(600)
-        click_button(page, [r"repair\s*&?\s*verify", r"repair"])
+        # Two Repair buttons exist: the top-bar one is BEHIND the overlay backdrop
+        # (pointer events blocked → click times out); the overlay card's own CTA is
+        # last in DOM and clickable.
+        page.get_by_role("button", name=re.compile(r"repair\s*&?\s*verify", re.I)).last.click(
+            timeout=15000
+        )
         try:
             page.get_by_text(re.compile(r"INCIDENT RESOLVED", re.I)).first.wait_for(
                 state="visible", timeout=INVESTIGATION_TIMEOUT_MS
