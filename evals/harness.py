@@ -91,6 +91,26 @@ def reset_environment(mode: str, clear_incidents: bool = True) -> None:
         for p in INCIDENTS_DIR.glob("*.json.tmp"):
             p.unlink()
 
+    # CONTAMINATION GUARD (adversarial-review finding C1): a previous run's
+    # DataHub writeback (incident-history note on a dataset description) is the
+    # answer key for the next run. Scrub BlackBox-written state and hard-fail if
+    # any note survives — a contaminated run must never be graded.
+    try:
+        from blackbox.datahub import client as dh_client
+
+        datahub_up = dh_client.ping()
+    except Exception:
+        datahub_up = False
+    if datahub_up:
+        from blackbox.datahub.reset import contamination_report, reset_blackbox_state
+
+        reset_blackbox_state()
+        dirty = contamination_report()
+        if dirty:
+            raise RuntimeError(
+                f"DataHub contamination: BlackBox incident notes still present on {dirty}"
+            )
+
 
 def restore_environment() -> None:
     """Post-scenario restore: clean transforms, incident-mode sources, rebuilt

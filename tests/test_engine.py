@@ -27,16 +27,21 @@ def state(store):
     return s
 
 
+URN_RAW = "urn:li:dataset:(urn:li:dataPlatform:duckdb,raw.raw_orders,PROD)"
+URN_STG = "urn:li:dataset:(urn:li:dataPlatform:duckdb,staging.stg_orders,PROD)"
+URN_FCT = "urn:li:dataset:(urn:li:dataPlatform:duckdb,marts.fct_revenue,PROD)"
+
+
 def executor_with_lineage(state, store) -> ToolExecutor:
     ex = ToolExecutor(state, store)
     state.nodes = [
-        LineageNode(urn="urn:raw", name="raw.raw_orders", platform="duckdb", layer="source"),
-        LineageNode(urn="urn:stg", name="staging.stg_orders", platform="duckdb", layer="staging"),
-        LineageNode(urn="urn:fct", name="marts.fct_revenue", platform="duckdb", layer="marts"),
+        LineageNode(urn=URN_RAW, name="raw.raw_orders", platform="duckdb", layer="source"),
+        LineageNode(urn=URN_STG, name="staging.stg_orders", platform="duckdb", layer="staging"),
+        LineageNode(urn=URN_FCT, name="marts.fct_revenue", platform="duckdb", layer="marts"),
     ]
     state.edges = [
-        LineageEdge(source="urn:raw", target="urn:stg"),
-        LineageEdge(source="urn:stg", target="urn:fct"),
+        LineageEdge(source=URN_RAW, target=URN_STG),
+        LineageEdge(source=URN_STG, target=URN_FCT),
     ]
     return ex
 
@@ -69,7 +74,7 @@ def test_terminal_stages_are_sticky(state):
 def test_confirm_root_cause_rejects_without_evidence(state, store):
     ex = executor_with_lineage(state, store)
     out = ex.t_confirm_root_cause(
-        summary="units changed", asset_urn="urn:raw", field="amount", detail="", evidence_ids=[]
+        summary="units changed", asset_urn=URN_RAW, field="amount", detail="", evidence_ids=[]
     )
     assert "error" in out
 
@@ -78,7 +83,7 @@ def test_confirm_root_cause_rejects_without_quantitative(state, store):
     ex = executor_with_lineage(state, store)
     ev = add_evidence(state, "lineage", "datahub")
     out = ex.t_confirm_root_cause(
-        summary="units changed", asset_urn="urn:raw", field="amount", detail="", evidence_ids=[ev.id]
+        summary="units changed", asset_urn=URN_RAW, field="amount", detail="", evidence_ids=[ev.id]
     )
     assert "error" in out and "quantitative" in out["error"]
 
@@ -87,7 +92,7 @@ def test_confirm_root_cause_rejects_without_datahub(state, store):
     ex = executor_with_lineage(state, store)
     ev = add_evidence(state, "profile", "warehouse", data={"column": "amount", "ratio": 100})
     out = ex.t_confirm_root_cause(
-        summary="units changed", asset_urn="urn:raw", field="amount", detail="", evidence_ids=[ev.id]
+        summary="units changed", asset_urn=URN_RAW, field="amount", detail="", evidence_ids=[ev.id]
     )
     assert "error" in out and "DataHub" in out["error"]
 
@@ -97,7 +102,7 @@ def test_confirm_root_cause_rejects_when_field_not_in_evidence(state, store):
     e1 = add_evidence(state, "lineage", "datahub")
     e2 = add_evidence(state, "profile", "warehouse", data={"column": "usd_rate"})
     out = ex.t_confirm_root_cause(
-        summary="units changed", asset_urn="urn:raw", field="amount", detail="",
+        summary="units changed", asset_urn=URN_RAW, field="amount", detail="",
         evidence_ids=[e1.id, e2.id],
     )
     assert "error" in out and "amount" in out["error"]
@@ -118,16 +123,17 @@ def test_confirm_root_cause_accepts_with_proper_evidence_and_marks_graph(state, 
     ex = executor_with_lineage(state, store)
     state.stage = IncidentStage.EVIDENCE_COLLECTION
     e1 = add_evidence(state, "lineage", "datahub")
-    e2 = add_evidence(state, "profile", "warehouse", data={"column": "amount", "median_ratio": 99.6})
+    e2 = add_evidence(state, "profile", "warehouse",
+                      data={"table": "raw.raw_orders", "column": "amount", "median_ratio": 99.6})
     out = ex.t_confirm_root_cause(
-        summary="raw_orders.amount switched dollars→cents", asset_urn="urn:raw", field="amount",
+        summary="raw_orders.amount switched dollars→cents", asset_urn=URN_RAW, field="amount",
         detail="cloudpay_v2 rows are 100x", evidence_ids=[e1.id, e2.id],
     )
     assert out.get("ok") is True
     assert state.stage == IncidentStage.ROOT_CAUSE_CONFIRMED
-    assert state.node("urn:raw").status == "root_cause"
-    assert state.node("urn:stg").status == "affected"
-    assert state.node("urn:fct").status == "affected"
+    assert state.node(URN_RAW).status == "root_cause"
+    assert state.node(URN_STG).status == "affected"
+    assert state.node(URN_FCT).status == "affected"
 
 
 def test_no_incident_requires_quantitative_evidence(state, store):
@@ -143,7 +149,7 @@ def test_no_incident_requires_quantitative_evidence(state, store):
 
 def test_hypothesis_elimination_requires_evidence(state, store):
     ex = executor_with_lineage(state, store)
-    hyp = ex.t_record_hypothesis(description="fx staleness", target_urn="urn:fct")
+    hyp = ex.t_record_hypothesis(description="fx staleness", target_urn=URN_FCT)
     out = ex.t_update_hypothesis(hypothesis_id=hyp["hypothesis_id"], status="eliminated", confidence=0.1)
     assert "error" in out
 

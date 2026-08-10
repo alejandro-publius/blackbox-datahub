@@ -46,6 +46,7 @@ def click_button(page, patterns: list[str], timeout: int = 15000) -> None:
 
 
 def main() -> int:
+    resume = "--resume" in sys.argv  # continue an incident already at ROOT_CAUSE_CONFIRMED
     failures: list[str] = []
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -55,38 +56,54 @@ def main() -> int:
             lambda m: console_errors.append(m.text) if m.type == "error" else None,
         )
 
-        print("ACT 1 — intake (anomalous KPI)")
-        page.goto(APP, wait_until="networkidle", timeout=60000)
-        page.wait_for_timeout(1500)
-        body = page.inner_text("body")
-        assert "PREVIEW" not in body, "preview watermark visible on live page!"
-        if not re.search(r"(×|x)\s*EXPECTED|CRITICAL|ANOMAL", body, re.I):
-            failures.append("intake: no anomaly indicator found on load")
-        shoot(page, "01-intake.png")
-
-        print("ACT 2 — start investigation")
-        click_button(page, [r"investigate"])
-        page.wait_for_timeout(800)
-        # dialog with prefilled report; submit it
-        click_button(page, [r"start", r"investigate", r"report", r"submit"])
-
-        print("ACT 3 — live investigation → root cause")
-        page.wait_for_timeout(15000)
-        shoot(page, "02-investigation.png")
-        try:
+        if resume:
+            print("RESUME — loading page with in-flight incident")
+            page.goto(APP, wait_until="networkidle", timeout=60000)
             page.get_by_text(re.compile(r"ROOT CAUSE CONFIRMED", re.I)).first.wait_for(
-                state="visible", timeout=INVESTIGATION_TIMEOUT_MS
+                state="visible", timeout=60000
             )
-        except PWTimeout:
-            shoot(page, "failure-no-rootcause.png")
-            failures.append("investigation never reached ROOT CAUSE CONFIRMED (8 min)")
-            print("FAILURES:", failures)
-            browser.close()
-            return 1
-        page.wait_for_timeout(1000)
-        shoot(page, "03-rootcause.png")
+        else:
+            print("ACT 1 — intake (anomalous KPI)")
+            page.goto(APP, wait_until="networkidle", timeout=60000)
+            page.wait_for_timeout(1500)
+            body = page.inner_text("body")
+            assert "PREVIEW" not in body, "preview watermark visible on live page!"
+            if not re.search(r"(×|x)\s*EXPECTED|CRITICAL|ANOMAL", body, re.I):
+                failures.append("intake: no anomaly indicator found on load")
+            shoot(page, "01-intake.png")
+
+            print("ACT 2 — start investigation")
+            click_button(page, [r"investigate"])
+            page.wait_for_timeout(800)
+            # dialog with prefilled report; submit it
+            click_button(page, [r"start", r"investigate", r"report", r"submit"])
+
+            print("ACT 3 — live investigation → root cause")
+            page.wait_for_timeout(15000)
+            shoot(page, "02-investigation.png")
+            try:
+                page.get_by_text(re.compile(r"ROOT CAUSE CONFIRMED", re.I)).first.wait_for(
+                    state="visible", timeout=INVESTIGATION_TIMEOUT_MS
+                )
+            except PWTimeout:
+                shoot(page, "failure-no-rootcause.png")
+                failures.append("investigation never reached ROOT CAUSE CONFIRMED (8 min)")
+                print("FAILURES:", failures)
+                browser.close()
+                return 1
+            page.wait_for_timeout(1000)
+            shoot(page, "03-rootcause.png")
 
         print("ACT 4 — repair & verify")
+        # the root-cause overlay covers the top bar; dismiss it, then use the
+        # persistent Repair & Verify button
+        try:
+            page.locator("[aria-label*='close' i], button:has-text('✕'), button:has-text('×')").first.click(
+                timeout=4000
+            )
+        except Exception:
+            page.keyboard.press("Escape")
+        page.wait_for_timeout(600)
         click_button(page, [r"repair\s*&?\s*verify", r"repair"])
         try:
             page.get_by_text(re.compile(r"INCIDENT RESOLVED", re.I)).first.wait_for(

@@ -66,7 +66,8 @@ FIELD_DOCS: dict[str, dict[str, str]] = {
         ),
         "payment_processor": (
             "Payment provider that captured the order. Known values: legacy_pos, shopgate, "
-            "cloudpay_v2 (provider migration began 2026-08-07 per payments-platform runbook)."
+            "cloudpay_v2 (new provider being rolled out in early August 2026 per the "
+            "payments-platform runbook)."
         ),
         "status": "Terminal order state: completed | cancelled | refunded.",
     },
@@ -85,7 +86,7 @@ FIELD_DOCS: dict[str, dict[str, str]] = {
         "order_count": "Completed orders that day.",
         "revenue_usd": "Sum of USD-normalized order amounts. Feeds the Executive Revenue KPI.",
         "aov_usd": "Mean order value (USD).",
-        "aov_median_usd": "Median order value (USD) — robust health signal for unit/semantic drift.",
+        "aov_median_usd": "Median order value (USD).",
     },
     "marts.exec_revenue_metric": {
         "kpi_day": "The day the KPI reports on (latest complete day).",

@@ -19,9 +19,11 @@ from . import warehouse
 
 
 def _resolve_transform(file_rel: str) -> Path:
+    import os
+
     path = (REPO_ROOT / file_rel).resolve()
     transforms = settings.transforms_dir.resolve()
-    if not str(path).startswith(str(transforms)) or path.suffix != ".sql":
+    if not str(path).startswith(str(transforms) + os.sep) or path.suffix != ".sql":
         raise ValueError(f"repairs may only modify pipeline transforms, got {file_rel!r}")
     if not path.exists():
         raise FileNotFoundError(file_rel)

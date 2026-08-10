@@ -138,16 +138,21 @@ def _grade_positive(state) -> Outcome:
     out.checks["repair_verified"] = bool(
         ta and ta.failed == 0 and ta.total >= 30 and ma and 0.8 <= ma.anomaly_ratio <= 1.3
     )
-    # Heuristic: a targeted fix conditions on the migrated provider (or a CASE/WHEN);
-    # an unconditional divide would not. Diff reported below for human review.
+    # A targeted fix must condition on the defective cohort's causal attribute
+    # (the provider), not merely on dates or a bare CASE — date-scoped fixes are
+    # numerically identical in this fixture but causally wrong. Diff reported
+    # below for human review.
     added = "\n".join(l for l in (patch.diff.splitlines() if patch else []) if l.startswith("+"))
     out.checks["repair_targeted"] = bool(
-        patch
-        and (
-            "cloudpay" in added.lower()
-            or (re.search(r"\bcase\b", added, re.IGNORECASE) and re.search(r"\bwhen\b", added, re.IGNORECASE))
-        )
+        patch and ("cloudpay" in added.lower() or "payment_processor" in added.lower())
     )
+    # The fixture is deterministic: the exact healthy values for the affected days
+    # are in the committed baseline. A repair that merely lands inside the loose
+    # KPI window (e.g. replacing amounts with a plausible constant) fails this.
+    out.checks["repair_restores_baseline"] = _post_repair_matches_baseline()
+    # The graded patch must be the ONLY change on disk (no earlier patch to a
+    # different transform left behind by an iteration).
+    out.checks["repair_single_file"] = _changed_transforms() in ([], [REPAIR_FILE])
 
     out.metrics["evidence_by_source"] = dict(Counter(e.source for e in state.evidence))
     has_datahub_lineage = any(e.source == "datahub" and e.kind == "lineage" for e in state.evidence)
@@ -172,6 +177,35 @@ def _grade_positive(state) -> Outcome:
     if state.error:
         out.notes.append(f"error: {state.error[:200]}")
     return out
+
+
+def _post_repair_matches_baseline(tolerance: float = 0.01, days: int = 3) -> bool:
+    """True iff post-repair daily revenue AND median AOV for the most recent days
+    match the committed healthy baseline within `tolerance` (default 1%)."""
+    try:
+        from blackbox import warehouse
+
+        comp = warehouse.compare_to_baseline(last_days=days)["comparisons"]
+    except Exception:
+        return False
+    if len(comp) < days:
+        return False
+    for c in comp:
+        for ratio_key in ("revenue_ratio", "aov_ratio"):
+            r = c.get(ratio_key)
+            if r is None or abs(r - 1.0) > tolerance:
+                return False
+    return True
+
+
+def _changed_transforms() -> list[str]:
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "diff", "--name-only", "--", "pipeline/transforms/"],
+        cwd=harness.REPO_ROOT, capture_output=True, text=True,
+    )
+    return [l.strip() for l in out.stdout.splitlines() if l.strip()]
 
 
 def run_positive_incident(scenario: Scenario) -> Outcome:
@@ -292,9 +326,15 @@ def run_bad_repair_rejected(scenario: Scenario) -> Outcome:
 # 4. datahub_ablation
 # ---------------------------------------------------------------------------
 def run_datahub_ablation(scenario: Scenario) -> Outcome:
-    """Same incident, but the agent's DataHub tools all error out. The graded
-    claim: WITHOUT DataHub the agent does NOT reach a correct confirmed root
-    cause end-to-end — i.e. DataHub context is load-bearing."""
+    """Same incident, but the agent's DataHub tools all error out AND the
+    confirm gate's DataHub-citation requirements are relaxed (see tools.py) so
+    the ablation measures information value, not gate wiring (a review found the
+    earlier terminal-failure framing circular). Graded honestly:
+      - run_executed: the agent actually took turns;
+      - no_false_all_clear: it did not wrongly declare NO_INCIDENT;
+    and REPORTED (not pass/fail): whether it still identified the right asset &
+    field, whether writeback was possible, turns/tool-calls — compared against
+    the DataHub-enabled arm in results."""
     from blackbox.config import settings
 
     if not settings.blackbox_disable_datahub:
@@ -316,15 +356,23 @@ def run_datahub_ablation(scenario: Scenario) -> Outcome:
     rc = final.root_cause
     stats = _transcript_stats(final.id)
     # Guard: a run that crashed before the agent took a single turn (e.g. an API
-    # error) proves nothing about DataHub being load-bearing — never a pass.
+    # error) proves nothing — never a pass.
     out.checks["run_executed"] = stats["turns"] > 0
+    # An ablated agent that declares "no incident" on corrupted data is the
+    # worst outcome — that IS a pass/fail matter.
+    out.checks["no_false_all_clear"] = final.stage != IncidentStage.NO_INCIDENT
     reached_terminal = final.stage in (IncidentStage.VERIFIED, IncidentStage.WRITEBACK_COMPLETE)
     correct = _root_cause_correct(rc)
-    out.checks["datahub_load_bearing"] = not (reached_terminal and correct)
 
     out.metrics["ablated_final_stage"] = final.stage.value
     out.metrics["ablated_reached_terminal"] = reached_terminal
     out.metrics["ablated_root_cause_correct"] = correct
+    out.metrics["ablated_writeback_possible"] = bool(
+        final.writeback and final.writeback.status == "complete"
+    )
+    out.metrics["ablated_datahub_evidence_count"] = sum(
+        1 for e in final.evidence if e.source == "datahub"
+    )
     out.metrics.update(stats)
     out.details.update(_common_state_details(final))
     if final.error:

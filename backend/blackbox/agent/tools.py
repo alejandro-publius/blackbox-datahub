@@ -440,6 +440,8 @@ class ToolExecutor:
     def t_confirm_root_cause(
         self, summary: str, asset_urn: str, field: str, detail: str, evidence_ids: list[str]
     ) -> Any:
+        from ..config import settings
+
         cited = [self.state.evidence_by_id(e) for e in evidence_ids]
         if any(c is None for c in cited):
             return {"error": "one or more evidence_ids do not exist"}
@@ -448,10 +450,16 @@ class ToolExecutor:
         problems = []
         if not kinds & {"profile", "baseline_comparison"}:
             problems.append("no quantitative evidence (profile/baseline_comparison) cited")
-        if "datahub" not in sources:
-            problems.append("no DataHub metadata/lineage evidence cited")
-        if self.state.node(asset_urn) is None:
-            problems.append(f"{asset_urn} is not in the traversed lineage graph — traverse lineage first")
+        # DataHub-grounding requirements are relaxed when the metadata service is
+        # down (ablation mode) so the gate measures evidence quality, not merely
+        # DataHub availability — the ablation eval grades accuracy separately.
+        if not settings.blackbox_disable_datahub:
+            if "datahub" not in sources:
+                problems.append("no DataHub metadata/lineage evidence cited")
+            if self.state.node(asset_urn) is None:
+                problems.append(
+                    f"{asset_urn} is not in the traversed lineage graph — traverse lineage first"
+                )
         quant = [c for c in cited if c.kind in ("profile", "baseline_comparison")]
         if quant and field:
             blob = json.dumps([c.data for c in quant], default=str).lower()
@@ -459,6 +467,12 @@ class ToolExecutor:
                 problems.append(
                     f"cited quantitative evidence never references field {field!r} — "
                     "profile the blamed column itself"
+                )
+            asset_name = asset_urn.split(",")[-2] if "," in asset_urn else asset_urn
+            if asset_name.lower() not in blob:
+                problems.append(
+                    f"cited quantitative evidence never references the blamed asset "
+                    f"{asset_name!r} — profile the blamed asset's own column"
                 )
         if problems:
             return {"error": "root cause NOT accepted: " + "; ".join(problems)}

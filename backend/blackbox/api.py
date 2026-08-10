@@ -202,7 +202,16 @@ def demo_reset() -> dict:
         subprocess.run(["git", "branch", "-D", b], cwd=REPO_ROOT, capture_output=True)
     if branches:
         steps.append(f"dropped {len(branches)} fix branch(es)")
-    # 5. re-sync DataHub metadata (transform SQL text reverted; idempotent upserts)
+    # 5. scrub BlackBox-written DataHub state (incident notes / tags / ACTIVE
+    #    incidents) — a leftover remediation note is the next run's answer key
+    try:
+        from .datahub.reset import reset_blackbox_state
+
+        scrub = reset_blackbox_state()
+        steps.append(f"DataHub scrubbed: {scrub}")
+    except Exception as e:
+        steps.append(f"DataHub scrub skipped ({type(e).__name__})")
+    # 6. re-sync DataHub metadata (transform SQL text reverted; idempotent upserts)
     try:
         from .datahub import ingest as dh_ingest
 

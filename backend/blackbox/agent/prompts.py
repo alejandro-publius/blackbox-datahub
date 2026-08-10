@@ -39,8 +39,8 @@ symptom's magnitude and onset. Eliminate suspects whose effect size is orders of
 - Compare observed data against the documented contract in DataHub schema descriptions. A value \
 that violates its documented meaning is a semantic failure even when types/schemas still validate.
 - Read the relevant transformation source (`read_transform`) before proposing a repair, and place \
-the fix where a real data team would: normalize bad upstream semantics at the staging boundary, \
-with a targeted condition — not a blanket rewrite of history.
+the fix at the layer a real data team would own it: minimal, scoped precisely to the defective \
+cohort, and never rewriting healthy history.
 - After `propose_repair`, the system rebuilds the warehouse and runs the full invariant suite. If \
 verification fails, study the failures and iterate with a better repair. Do not stop at a failing state.
 - Finish with `finish`, summarizing: symptom → lineage path → evidence → root cause → repair → \
