@@ -102,6 +102,10 @@ DataHub, the agent loop, the evidence gates, and the incident writeback are unch
 
 `evals/` contains a deterministic harness: seeded-incident diagnosis (graded on 11 machine-checked criteria, including that the repair restores the committed baseline to within 1% — not merely the loose KPI window), a no-incident control (healthy data must not produce an invented incident), a bad-repair rejection proof (a naive blanket fix is caught by historical-immutability invariants), and a DataHub-ablation comparison. Every conclusion is graded by deterministic code — never by an LLM judging itself. An independent adversarial review of the methodology ran during development; its critical findings (a DataHub writeback note that could contaminate later runs; a circular ablation) were fixed, and the harness now scrubs BlackBox-written DataHub state before every scenario and hard-fails on contamination. Results + full per-run artifacts live in `evals/results/`.
 
+## Verification
+
+Every P0 claim in this README is enumerated with runnable evidence in [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md), including the limitations we chose to state rather than hide.
+
 ## Repo map
 
 `pipeline/` demo data stack + invariants · `backend/blackbox/` engine + API · `frontend/` command center · `evals/` eval harness · `examples/` inspectable sample-run artifacts · `docs/` architecture, demo script, judge scorecard, hackathon requirements, progress log.

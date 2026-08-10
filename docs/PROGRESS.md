@@ -35,6 +35,18 @@ Concise, append-only. Newest entries at the bottom. Survives context compaction.
 - run_evals now archives full incident artifacts per scenario (evals/results/artifacts/).
 - Session restart (re-login) orphaned servers; restarted. Drill click bug root-caused: top-bar button behind overlay backdrop; .last targets the card CTA (verified in preview).
 
+## 2026-08-10 ~01:15 — SUBMISSION-READY (pending video)
+- Judge simulation scored: Stage One PASS; Use of DataHub 8, Technical Execution 8, Originality 7, Real-World Usefulness 7, Submission Quality 7. Verdict: plausible category winner for "Agents That Do Real Work".
+- Its #1 finding was self-inflicted: JUDGE_SCORECARD contradicted our own eval data ("ablation FAILED" vs. committed results showing it passed). Fixed everywhere; ablation now described as measured.
+- MCP made structurally true: lineage BFS now routes through the MCP Server too (via=datahub-mcp-server across search + context + lineage).
+- README condensed (9 steps → 4), hero screenshot, production-adapter seam table added.
+- OSS bonus claimed: DataHub docs PR #19046 (silent quickstart hang under Colima/Rancher/Podman).
+- UI fix: resolution/root-cause cards lead with evidence; long agent report collapsed (it was burying the KPI/diff/git/writeback below the fold).
+- Demo drill hardened: captures + ASSERTS the ACTIVE DataHub incident and the durable remediation note. 6 acts green in 150s. 7 real screenshots committed.
+- LICENSE swapped to GitHub's canonical Apache-2.0 text → now auto-detected (rules require it visible).
+- docs/ACCEPTANCE.md written: all 22 gates with runnable evidence + honest limitations.
+- REMAINING (human-only): record <3:00 video per docs/DEMO_SCRIPT.md, upload public, submit Devpost form (text ready in docs/DEVPOST.md).
+
 ## Architecture decisions (running list)
 - Incident scenario: cents-vs-dollars semantic shift in raw_orders.amount → 100x revenue jump. Deterministic, seeded, resettable.
 - Local data stack: DuckDB + Python transformations (dbt only if time permits) + metric snapshot consumer.
