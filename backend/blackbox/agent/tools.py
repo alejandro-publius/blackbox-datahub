@@ -568,6 +568,18 @@ class ToolExecutor:
             )
         except Exception as e:
             self._record("patch", "git", "Git artifact creation failed", str(e), None)
+        # Optional, opt-in (BLACKBOX_CREATE_PR): publish the verified fix as a real
+        # GitHub PR. This runs strictly AFTER verification and is fully isolated —
+        # any failure becomes an evidence item and the incident stays VERIFIED.
+        if self.state.git_artifact is not None:
+            try:
+                pr = repair.publish_repair_pr(self.state, self.state.git_artifact)
+                if pr.get("status") != "disabled":
+                    self._record("patch", "git", pr["title"], pr["detail"], pr)
+            except Exception as e:  # defence in depth: publish_repair_pr never raises
+                self._record(
+                    "patch", "git", "PR publication failed", f"{type(e).__name__}: {e}", None
+                )
         self._save()
         # durable writeback into DataHub
         try:

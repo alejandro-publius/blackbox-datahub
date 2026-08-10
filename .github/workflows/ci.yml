@@ -1,0 +1,166 @@
+name: CI
+
+# Deterministic, secret-free CI. Every job here must pass on a fork with no
+# repository secrets configured, so nothing below may touch the Anthropic API, a
+# live DataHub, or any network service beyond the package registries.
+#
+#   backend-tests       evidence-gate + repair/PR unit tests
+#   pipeline-invariants the HEALTHY fixture must be 32/32 green — the determinism guarantee
+#   frontend            lint + production build of the Next.js command center
+#   secrets-scan        no tracked .env, no credential-shaped strings in the tree
+#
+# The demo's own agent loop and the evals are deliberately NOT run here: they need
+# ANTHROPIC_API_KEY and a running DataHub, which CI must never depend on.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push supersedes an in-flight run of the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Belt and braces: the autonomous PR step is off by default, and CI states so
+  # explicitly so a stray .env can never make a test job push to a remote.
+  BLACKBOX_CREATE_PR: "false"
+
+jobs:
+  backend-tests:
+    name: backend unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.29"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python 3.11
+        run: uv python install 3.11
+
+      - name: Sync dependencies (locked)
+        run: uv sync --frozen --python 3.11
+
+      # tests/test_engine.py opens the DuckDB warehouse read-only to prove the
+      # SQL tool is read-only, so the warehouse has to exist. Healthy mode keeps
+      # the job independent of the seeded incident.
+      - name: Build the healthy warehouse fixture
+        run: |
+          uv run --frozen python pipeline/generate_sources.py --mode healthy
+          uv run --frozen python pipeline/run.py
+
+      - name: Run unit tests
+        run: uv run --frozen pytest tests/ -q
+
+  pipeline-invariants:
+    name: pipeline invariants (healthy = 32/32)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.29"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python 3.11
+        run: uv python install 3.11
+
+      - name: Sync dependencies (locked)
+        run: uv sync --frozen --python 3.11
+
+      - name: Build the HEALTHY fixture
+        run: |
+          uv run --frozen python pipeline/generate_sources.py --mode healthy
+          uv run --frozen python pipeline/run.py
+
+      # The fixture is seeded and anchored to a fixed day, so this is exact: a
+      # healthy build must satisfy every invariant. Anything less means the
+      # fixture, the transforms, or the committed baselines have drifted.
+      # The count is asserted too, so a collection error can never pass as green.
+      - name: All 32 invariants must pass
+        run: |
+          out=$(uv run --frozen pytest pipeline/invariants -q)
+          echo "$out"
+          echo "$out" | grep -qE '(^|[^0-9])32 passed' || {
+            echo "::error::expected exactly 32 passing invariants on the healthy fixture"
+            exit 1
+          }
+
+  frontend:
+    name: frontend lint + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"   # next 16 requires >= 20.9
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install (locked)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # No secrets: the API base URL falls back to http://localhost:8400.
+      - name: Build
+        run: npm run build
+
+  secrets-scan:
+    name: secrets scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .env must never be tracked
+        run: |
+          tracked=$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$' || true)
+          if [ -n "$tracked" ]; then
+            echo "::error::environment files are tracked in git:"
+            echo "$tracked"
+            exit 1
+          fi
+          echo "ok: only .env.example is tracked"
+
+      # Credential-shaped strings only. The patterns require a realistic secret
+      # body, so documented placeholders (.env.example's `sk-ant-...`, the README's
+      # `sk-ant-...`) cannot trip them — and neither can this file, since the
+      # character classes below are not themselves valid secret bodies.
+      - name: No credentials in tracked files
+        run: |
+          patterns='sk-ant-[A-Za-z0-9_-]{20,}'
+          patterns="$patterns|gh[pousr]_[A-Za-z0-9]{36}"
+          patterns="$patterns|AKIA[0-9A-Z]{16}"
+          patterns="$patterns|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+          # Collect matches rather than trusting the pipeline's exit status: xargs
+          # may batch, and a "no match" batch would otherwise mask a real hit.
+          matches=$(git ls-files -z | xargs -0 grep -nIE "$patterns" || true)
+          if [ -n "$matches" ]; then
+            echo "::error::credential-shaped string found in a tracked file:"
+            echo "$matches"
+            exit 1
+          fi
+          echo "ok: no credential patterns in tracked files"

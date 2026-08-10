@@ -33,6 +33,12 @@ class Settings(BaseSettings):
 
     blackbox_api_port: int = 8400
 
+    # Autonomous PR publication (env BLACKBOX_CREATE_PR). OFF by default: the demo and
+    # the evals must never push to a remote. When true, a VERIFIED repair additionally
+    # pushes its `blackbox/fix-*` branch to `origin` and opens a real PR via `gh`.
+    # Failure of that step is recorded as evidence and never changes the verified outcome.
+    blackbox_create_pr: bool = False
+
     # Fixture / pipeline layout (kept in sync with pipeline/)
     warehouse_path: Path = REPO_ROOT / "data" / "warehouse" / "blackbox.duckdb"
     metric_snapshot_path: Path = REPO_ROOT / "data" / "warehouse" / "metric_snapshot.json"
