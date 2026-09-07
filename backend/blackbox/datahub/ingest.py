@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import duckdb
 
-from ..config import REPO_ROOT, settings
+from ..config import settings
 
 PLATFORM = "duckdb"
 ENV = "PROD"

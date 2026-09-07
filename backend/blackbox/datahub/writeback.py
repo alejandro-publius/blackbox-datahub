@@ -84,7 +84,7 @@ def resolve_incident(state: IncidentState) -> Writeback:
     metric = state.metric_after
     git = state.git_artifact
     message_parts = [
-        f"Repair verified by BlackBox.",
+        "Repair verified by BlackBox.",
         f"Patch: {state.patch.file}" if state.patch else None,
         f"Tests: {tests.passed}/{tests.total} passed" if tests else None,
         f"KPI restored: anomaly ratio {metric.anomaly_ratio:.2f}x (target ~1.0x)" if metric else None,
