@@ -10,6 +10,7 @@
 
 [![CI](https://github.com/alejandro-publius/blackbox-datahub/actions/workflows/ci.yml/badge.svg)](https://github.com/alejandro-publius/blackbox-datahub/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 [![DataHub OSS](https://img.shields.io/badge/DataHub-OSS%20v1.7.0-1890ff)](https://datahubproject.io/)
 [![MCP Server](https://img.shields.io/badge/DataHub-MCP%20Server-6f42c1)](https://docs.datahub.com/docs/features/feature-guides/mcp)
 [![Invariants](https://img.shields.io/badge/invariants-32%2F32%20after%20repair-brightgreen)](evals/results/)
@@ -206,7 +207,7 @@ Verify without the UI:
 
 ```bash
 make test                        # 32 pipeline invariants (incident mode fails exactly 7 — by design)
-uv run pytest tests/             # 50 unit tests: evidence gates, repair/PR, ACK, tracing
+uv run pytest tests/             # 55 unit tests: evidence gates, repair/PR, ACK, tracing
 uv run python scripts/vertical_slice.py   # full autonomous run in the terminal
 uv run python scripts/demo_drill.py       # Playwright drill of the whole judge flow
 make evals                       # eval battery (see evals/README.md)
@@ -269,7 +270,7 @@ Runs the same deterministic evidence CI runs — backend unit tests, the healthy
 
 ```
 BLACKBOX JUDGE CHECK
-backend:               PASS — 50 tests
+backend:               PASS — 55 tests
 healthy pipeline:      PASS — 32/32
 frontend lint/build:   PASS — clean
 secrets:               PASS — none tracked, .env ignored
