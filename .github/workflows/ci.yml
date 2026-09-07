@@ -5,6 +5,7 @@ name: CI
 # live DataHub, or any network service beyond the package registries.
 #
 #   backend-tests       evidence-gate + repair/PR unit tests
+#   lint                ruff check over backend/, pipeline/, evals/, tests/, scripts/
 #   pipeline-invariants the HEALTHY fixture must be 32/32 green — the determinism guarantee
 #   frontend            lint + production build of the Next.js command center
 #   secrets-scan        no tracked .env, no credential-shaped strings in the tree
@@ -62,6 +63,29 @@ jobs:
 
       - name: Run unit tests
         run: uv run --frozen pytest tests/ -q
+
+  lint:
+    name: ruff check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.28"   # must be >= the uv that wrote uv.lock (revision 3)
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python 3.11
+        run: uv python install 3.11
+
+      - name: Sync dependencies (locked)
+        run: uv sync --frozen --python 3.11
+
+      - name: ruff check
+        run: uv run --frozen ruff check .
 
   pipeline-invariants:
     name: pipeline invariants (healthy = 32/32)

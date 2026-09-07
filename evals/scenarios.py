@@ -142,7 +142,7 @@ def _grade_positive(state) -> Outcome:
     # (the provider), not merely on dates or a bare CASE — date-scoped fixes are
     # numerically identical in this fixture but causally wrong. Diff reported
     # below for human review.
-    added = "\n".join(l for l in (patch.diff.splitlines() if patch else []) if l.startswith("+"))
+    added = "\n".join(ln for ln in (patch.diff.splitlines() if patch else []) if ln.startswith("+"))
     out.checks["repair_targeted"] = bool(
         patch and ("cloudpay" in added.lower() or "payment_processor" in added.lower())
     )
@@ -205,7 +205,7 @@ def _changed_transforms() -> list[str]:
         ["git", "diff", "--name-only", "--", "pipeline/transforms/"],
         cwd=harness.REPO_ROOT, capture_output=True, text=True,
     )
-    return [l.strip() for l in out.stdout.splitlines() if l.strip()]
+    return [ln.strip() for ln in out.stdout.splitlines() if ln.strip()]
 
 
 def run_positive_incident(scenario: Scenario) -> Outcome:

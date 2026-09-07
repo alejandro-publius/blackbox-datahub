@@ -6,7 +6,6 @@ Run: uv run uvicorn blackbox.api:app --port 8400 --app-dir backend
 from __future__ import annotations
 
 import asyncio
-import json
 import subprocess
 import threading
 

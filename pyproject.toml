@@ -54,3 +54,14 @@ addopts = "-q"
 [tool.ruff]
 line-length = 110
 target-version = "py311"
+
+# Pinned explicitly: newer ruff releases have widened what an unqualified
+# `[tool.ruff]` block lints for (this repo's default pulled in bandit/blind-except/
+# pylint-style checks that flag the agent's deliberate catch-broad-and-record-as-
+# evidence error handling — see tools.py's dispatch()/t_confirm_root_cause and
+# repair.py's publish_repair_pr, where a narrow except would defeat the "no tool
+# failure may crash the loop" design). Pycodestyle errors + pyflakes is what this
+# project actually enforces; select is explicit so `ruff check` doesn't silently
+# gain or lose rules on a ruff upgrade.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
