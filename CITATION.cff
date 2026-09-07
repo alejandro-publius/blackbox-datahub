@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you reference this project, please cite it as below."
+title: "BlackBox: Autonomous Data Incident Response on DataHub"
+abstract: >-
+  An evidence-gated autonomous agent for data-incident response: it reads
+  DataHub's context graph, proves a root cause against a machine-enforced
+  evidence gate, repairs the pipeline, verifies the fix against the full
+  invariant suite, and writes the resolution back into DataHub.
+authors:
+  - family-names: "Velazquez"
+    given-names: "Alex"
+repository-code: "https://github.com/alejandro-publius/blackbox-datahub"
+url: "https://github.com/alejandro-publius/blackbox-datahub"
+license: Apache-2.0
+version: 0.1.0
+date-released: "2026-09-07"
+keywords:
+  - data-incident-response
+  - datahub
+  - agents
+  - data-observability
+  - evidence-gating
