@@ -136,6 +136,51 @@ def test_confirm_root_cause_accepts_with_proper_evidence_and_marks_graph(state, 
     assert state.node(URN_FCT).status == "affected"
 
 
+def test_confirm_root_cause_rejects_unknown_evidence_id(state, store):
+    ex = executor_with_lineage(state, store)
+    out = ex.t_confirm_root_cause(
+        summary="units changed", asset_urn=URN_RAW, field="amount", detail="",
+        evidence_ids=["ev_does_not_exist"],
+    )
+    assert "error" in out and "do not exist" in out["error"]
+
+
+def test_confirm_root_cause_rejects_when_asset_not_in_evidence(state, store):
+    # Field is mentioned, but nothing in the cited evidence names the blamed asset.
+    ex = executor_with_lineage(state, store)
+    e1 = add_evidence(state, "lineage", "datahub")
+    e2 = add_evidence(
+        state, "profile", "warehouse",
+        data={"table": "staging.stg_orders", "column": "amount", "median_ratio": 99.6},
+    )
+    out = ex.t_confirm_root_cause(
+        summary="units changed", asset_urn=URN_RAW, field="amount", detail="",
+        evidence_ids=[e1.id, e2.id],
+    )
+    assert "error" in out and "raw.raw_orders" in out["error"]
+
+
+def test_confirm_root_cause_rejects_contradictory_evidence(state, store):
+    # Evidence that is topically on-point (right field, right asset) but whose own
+    # numbers show nothing out of the ordinary must NOT confirm an incident — a
+    # citation that reads as healthy cannot support a root-cause claim.
+    ex = executor_with_lineage(state, store)
+    e1 = add_evidence(state, "lineage", "datahub")
+    e2 = add_evidence(
+        state, "baseline_comparison", "warehouse",
+        data={
+            "table": "raw.raw_orders", "column": "amount",
+            "comparisons": [{"day": "2026-08-09", "revenue_ratio": 1.02}],
+        },
+    )
+    out = ex.t_confirm_root_cause(
+        summary="units changed", asset_urn=URN_RAW, field="amount",
+        detail="cloudpay_v2 rows are 100x", evidence_ids=[e1.id, e2.id],
+    )
+    assert "error" in out and "no anomaly" in out["error"]
+    assert state.stage != IncidentStage.ROOT_CAUSE_CONFIRMED
+
+
 def test_no_incident_requires_quantitative_evidence(state, store):
     ex = executor_with_lineage(state, store)
     e1 = add_evidence(state, "lineage", "datahub")
@@ -145,6 +190,29 @@ def test_no_incident_requires_quantitative_evidence(state, store):
     out = ex.t_declare_no_incident(reasoning="all good", evidence_ids=[e2.id])
     assert out.get("ok") is True
     assert state.stage == IncidentStage.NO_INCIDENT
+
+
+def test_no_incident_rejects_contradictory_evidence(state, store):
+    # The cited evidence itself shows a 100x anomaly — citing it to declare
+    # "no incident" is contradictory and must be refused, not accepted.
+    ex = executor_with_lineage(state, store)
+    e1 = add_evidence(
+        state, "baseline_comparison", "warehouse",
+        data={"comparisons": [{"day": "2026-08-09", "revenue_ratio": 100.0}]},
+    )
+    out = ex.t_declare_no_incident(reasoning="looks fine to me", evidence_ids=[e1.id])
+    assert "error" in out and "anomalous" in out["error"]
+    assert state.stage != IncidentStage.NO_INCIDENT
+
+
+def test_no_incident_rejects_when_any_cited_evidence_is_anomalous(state, store):
+    # Mixing one normal item with one anomalous item must still be refused —
+    # partial support does not launder the contradictory citation.
+    ex = executor_with_lineage(state, store)
+    e_ok = add_evidence(state, "baseline_comparison", "warehouse", data={"revenue_ratio": 0.97})
+    e_bad = add_evidence(state, "profile", "warehouse", data={"aov_ratio": 12.4})
+    out = ex.t_declare_no_incident(reasoning="mostly fine", evidence_ids=[e_ok.id, e_bad.id])
+    assert "error" in out
 
 
 def test_hypothesis_elimination_requires_evidence(state, store):
