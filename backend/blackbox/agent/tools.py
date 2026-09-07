@@ -15,11 +15,9 @@ from typing import Any
 from .. import repair, warehouse
 from ..models import (
     EvidenceItem,
-    GitArtifact,
     Hypothesis,
     IncidentStage,
     IncidentState,
-    ProposedPatch,
 )
 from ..store import IncidentStore
 
@@ -198,6 +196,41 @@ LAYER_BY_PREFIX = [
     ("dim_", "marts"),
     ("exec_", "metric"),
 ]
+
+# Same "anomalous" cutoff t_compare_to_baseline already uses to flag a day (see
+# `anomalous = [... revenue_ratio > 1.5]` below). A ratio-like field further from
+# 1.0 than this, in either direction, reads as an anomaly; anything closer reads
+# as normal. Reused here so confirm_root_cause / declare_no_incident can check
+# that cited evidence actually agrees with the claim it's cited for, instead of
+# merely mentioning the right names.
+ANOMALY_RATIO_THRESHOLD = 1.5
+
+
+def _evidence_is_anomalous(data: Any, threshold: float = ANOMALY_RATIO_THRESHOLD) -> bool:
+    """True if some ratio-like numeric field nested in `data` (e.g. anomaly_ratio,
+    revenue_ratio, median_ratio, aov_ratio) is further from 1.0 than `threshold`
+    in either direction. Used to tell contradictory evidence apart from
+    supporting evidence: a citation that never puts a ratio outside the normal
+    band cannot substantiate an incident, and one that does cannot substantiate
+    "no incident"."""
+
+    def walk(node: Any) -> bool:
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if (
+                    isinstance(k, str)
+                    and k.lower().endswith("ratio")
+                    and isinstance(v, (int, float))
+                    and not isinstance(v, bool)
+                    and (v > threshold or v < 1.0 / threshold)
+                ):
+                    return True
+            return any(walk(v) for v in node.values())
+        if isinstance(node, list):
+            return any(walk(item) for item in node)
+        return False
+
+    return walk(data)
 
 
 def infer_layer(name: str) -> str:
@@ -501,6 +534,15 @@ class ToolExecutor:
                     f"cited quantitative evidence never references the blamed asset "
                     f"{asset_name!r} — profile the blamed asset's own column"
                 )
+        # Naming the right field/asset isn't enough — the cited numbers must
+        # actually show a deviation, or the citation is contradictory: evidence
+        # that reads as normal cannot confirm an incident.
+        if quant and not any(_evidence_is_anomalous(c.data) for c in quant):
+            problems.append(
+                "cited quantitative evidence shows no anomaly (every ratio-like value is within "
+                f"{1.0 / ANOMALY_RATIO_THRESHOLD:.2f}x-{ANOMALY_RATIO_THRESHOLD:.1f}x of normal) — "
+                "it contradicts the root cause it's cited to support"
+            )
         if problems:
             return {"error": "root cause NOT accepted: " + "; ".join(problems)}
         from ..models import RootCause
@@ -531,8 +573,20 @@ class ToolExecutor:
         cited = [self.state.evidence_by_id(e) for e in evidence_ids]
         if any(c is None for c in cited) or not cited:
             return {"error": "declare_no_incident requires valid evidence_ids"}
-        if not {c.kind for c in cited} & {"baseline_comparison", "profile"}:
+        quant = [c for c in cited if c.kind in ("baseline_comparison", "profile")]
+        if not quant:
             return {"error": "cite quantitative evidence (baseline comparison / profile) showing normal ranges"}
+        # Citing quantitative evidence isn't enough — it has to actually show
+        # normal ranges. Evidence that itself contains an anomalous ratio
+        # contradicts "no incident" and must not pass.
+        anomalous = [c for c in quant if _evidence_is_anomalous(c.data)]
+        if anomalous:
+            return {
+                "error": "declare_no_incident NOT accepted: cited evidence "
+                f"({', '.join(c.id for c in anomalous)}) shows an anomalous ratio-like value "
+                f"(outside {1.0 / ANOMALY_RATIO_THRESHOLD:.2f}x-{ANOMALY_RATIO_THRESHOLD:.1f}x) — "
+                "it contradicts the no-incident conclusion it's cited to support"
+            }
         self.state.stage = IncidentStage.NO_INCIDENT
         self.state.final_summary = reasoning
         for n in self.state.nodes:
