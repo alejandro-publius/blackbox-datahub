@@ -223,6 +223,122 @@ def test_hypothesis_elimination_requires_evidence(state, store):
 
 
 # ------------------------------------------------------------- repair safety
+#
+# confirm_root_cause and declare_no_incident check that cited evidence actually
+# supports the conclusion (see the tests above). Nothing analogous ever checked
+# that propose_repair's *target file* has anything to do with the confirmed
+# root cause -- only that a root cause of some kind was confirmed and the file
+# is a real transform under pipeline/transforms/. A confirmed root cause on one
+# table would not stop a repair -- a real file write, a real warehouse rebuild,
+# a real git commit, and on success a real DataHub writeback claiming the
+# incident is resolved -- aimed at a completely different, untouched one.
+#
+# These three cases pin the fix: reject a file unrelated to the root cause,
+# reject a file that "fixes" the symptom several hops downstream instead of at
+# the diagnosed origin (the root cause asset has its own editable transform, so
+# the repair belongs there), and accept the one legitimate exception -- the
+# root cause asset is a raw source with no transform of its own, so the only
+# place a fix CAN land is its immediate downstream transform, exactly as
+# evals/scenarios.py's own REPAIR_FILE fixture (raw.raw_orders diagnosed,
+# stg_orders.sql repaired) already expects.
+
+
+def test_propose_repair_rejects_file_unrelated_to_root_cause(state, store, monkeypatch):
+    ex = executor_with_lineage(state, store)
+    state.stage = IncidentStage.EVIDENCE_COLLECTION
+    e1 = add_evidence(state, "lineage", "datahub")
+    e2 = add_evidence(
+        state, "profile", "warehouse",
+        data={"table": "staging.stg_orders", "column": "amount", "median_ratio": 99.6},
+    )
+    confirmed = ex.t_confirm_root_cause(
+        summary="units changed", asset_urn=URN_STG, field="amount",
+        detail="cloudpay_v2 rows are 100x", evidence_ids=[e1.id, e2.id],
+    )
+    assert confirmed.get("ok") is True
+
+    def _forbidden(*a, **k):
+        raise AssertionError("repair.propose_patch must not run when the gate rejects the file")
+
+    monkeypatch.setattr(repair, "propose_patch", _forbidden)
+    out = ex.t_propose_repair(
+        file="pipeline/transforms/stg_customers.sql",
+        new_content="SELECT 1",
+        reasoning="wrong table entirely",
+    )
+    assert "error" in out
+    assert "stg_customers" in out["error"]
+    assert state.patch is None
+
+
+def test_propose_repair_rejects_multihop_downstream_when_root_cause_has_own_transform(
+    state, store, monkeypatch
+):
+    # staging.stg_orders has its own transform (stg_orders.sql). A "repair" that
+    # instead lands two hops downstream at fct_revenue.sql -- which could mask
+    # the KPI without ever touching the diagnosed table -- must be refused too,
+    # not just outright-unrelated files.
+    ex = executor_with_lineage(state, store)
+    state.stage = IncidentStage.EVIDENCE_COLLECTION
+    e1 = add_evidence(state, "lineage", "datahub")
+    e2 = add_evidence(
+        state, "profile", "warehouse",
+        data={"table": "staging.stg_orders", "column": "amount", "median_ratio": 99.6},
+    )
+    confirmed = ex.t_confirm_root_cause(
+        summary="units changed", asset_urn=URN_STG, field="amount",
+        detail="cloudpay_v2 rows are 100x", evidence_ids=[e1.id, e2.id],
+    )
+    assert confirmed.get("ok") is True
+
+    def _forbidden(*a, **k):
+        raise AssertionError("repair.propose_patch must not run when the gate rejects the file")
+
+    monkeypatch.setattr(repair, "propose_patch", _forbidden)
+    out = ex.t_propose_repair(
+        file="pipeline/transforms/fct_revenue.sql",
+        new_content="SELECT 1",
+        reasoning="compensate downstream instead of fixing the origin",
+    )
+    assert "error" in out
+    assert "fct_revenue" in out["error"]
+    assert state.patch is None
+
+
+def test_propose_repair_accepts_immediate_downstream_when_root_cause_is_a_raw_source(
+    state, store, monkeypatch
+):
+    # raw.raw_orders has no transform of its own -- nothing can be edited there.
+    # The only legitimate place a fix can land is its immediate downstream
+    # transform (stg_orders.sql), and the traversed lineage edge
+    # raw.raw_orders -> staging.stg_orders is exactly the evidence that
+    # licenses it. The gate must let this through to the real repair machinery.
+    ex = executor_with_lineage(state, store)
+    state.stage = IncidentStage.EVIDENCE_COLLECTION
+    e1 = add_evidence(state, "lineage", "datahub")
+    e2 = add_evidence(
+        state, "profile", "warehouse",
+        data={"table": "raw.raw_orders", "column": "amount", "median_ratio": 99.6},
+    )
+    confirmed = ex.t_confirm_root_cause(
+        summary="units changed", asset_urn=URN_RAW, field="amount",
+        detail="cloudpay_v2 rows are 100x", evidence_ids=[e1.id, e2.id],
+    )
+    assert confirmed.get("ok") is True
+
+    class _ReachedRepair(Exception):
+        pass
+
+    def _stub(*a, **k):
+        raise _ReachedRepair()
+
+    monkeypatch.setattr(repair, "propose_patch", _stub)
+    with pytest.raises(_ReachedRepair):
+        ex.t_propose_repair(
+            file="pipeline/transforms/stg_orders.sql",
+            new_content="SELECT 1",
+            reasoning="fix at the immediate downstream transform",
+        )
 
 
 def test_repair_restricted_to_transforms():
