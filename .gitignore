@@ -43,3 +43,7 @@ tmp/
 .playwright/
 test-results/
 playwright-report/
+
+# Demo video renders and their build scratch — the demo lives on YouTube, not in git
+*.mp4
+video-build/
