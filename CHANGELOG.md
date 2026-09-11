@@ -17,6 +17,8 @@ All notable changes to this project are documented here. Format follows
   rules a given ruff release enables by default.
 - `.github/workflows/ci.yml`: a `lint` job running `ruff check .`.
 - `.pre-commit-config.yaml`, `CITATION.cff`, this `CHANGELOG.md`.
+- `README.md`: a grand-prize note under the title, linking DataHub's
+  winners write-up and the Devpost project page.
 
 ### Fixed
 - `backend/blackbox/agent/tools.py`: `confirm_root_cause` and

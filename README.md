@@ -1,4 +1,5 @@
 # ◼ BlackBox — Autonomous Data Incident Response
+🏆 BlackBox won the **Grand Prize** at the Build with DataHub Agent Hackathon in September 2026, out of 600+ projects — [DataHub's write-up](https://datahub.com/blog/meet-the-winners-of-build-with-datahub-the-agent-hackathon/) · [Devpost project page](https://devpost.com/software/project-blackbox)
 
 > ### Evidence-gated autonomous recovery for data incidents.
 >
