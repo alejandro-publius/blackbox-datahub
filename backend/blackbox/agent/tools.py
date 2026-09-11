@@ -304,6 +304,62 @@ class ToolExecutor:
                     frontier.append(e.target)
         return out
 
+    @staticmethod
+    def _table_stem(urn: str) -> str:
+        """The bare table name a transform file is named after, e.g. the urn
+        `...,staging.stg_orders,PROD)` -> `stg_orders`. Same split used to derive
+        `asset_name` in t_confirm_root_cause, one step further (drop the layer
+        prefix DataHub reports, e.g. `staging.`)."""
+        name = urn.split(",")[-2] if "," in urn else urn
+        return name.rsplit(".", 1)[-1].strip("()").lower()
+
+    def _repair_target_mismatch(self, file: str) -> str | None:
+        """None when `file` is the confirmed root cause's own transform, or —
+        only when that asset has no transform of its own, i.e. it is a raw/source
+        table nothing can edit directly — one of its immediate downstream
+        transforms in the traversed lineage graph. Otherwise a message explaining
+        the mismatch.
+
+        This is evidence-grounded: it reads only the lineage graph the
+        investigation actually traversed (`state.edges`) and the transforms
+        actually on disk, never a claim the model made. Without it, nothing
+        connects the file `propose_repair` patches to the asset `confirm_root_cause`
+        blamed — a confirmed root cause on one table would not stop a repair (a
+        real file write, a real warehouse rebuild, a real git commit, and on
+        success a real DataHub writeback claiming the incident is resolved) aimed
+        at a completely different, untouched one.
+        """
+        from pathlib import Path
+
+        from .. import warehouse
+
+        rc = self.state.root_cause
+        assert rc is not None
+        stem = Path(file).stem.lower()
+        rc_stem = self._table_stem(rc.asset_urn)
+        # Owner-confirmed: every transform file is named for the table it produces, dbt adapter included.
+        if stem == rc_stem:
+            return None
+        if f"{rc_stem}.sql" in warehouse.list_transforms():
+            return (
+                f"{file!r} does not match the confirmed root cause's own transform "
+                f"({rc_stem}.sql) — that asset has an editable transform, so the "
+                "repair belongs there, not in a different file"
+            )
+        neighbor_stems = {
+            self._table_stem(e.target) for e in self.state.edges if e.source == rc.asset_urn
+        }
+        if stem in neighbor_stems:
+            return None
+        return (
+            f"{file!r} does not correspond to the confirmed root cause "
+            f"({rc.asset_urn}, which has no transform of its own) or any of its "
+            f"immediate downstream transforms in the traversed lineage "
+            f"({sorted(neighbor_stems) or 'none traversed from it yet'}) — propose "
+            "a repair at the diagnosed origin, not an unrelated or several-hops-"
+            "downstream file"
+        )
+
     def _result(self, payload: Any) -> str:
         s = json.dumps(payload, default=str)
         if len(s) > MAX_RESULT_CHARS:
@@ -603,6 +659,9 @@ class ToolExecutor:
                 "error": "repair phase not yet authorized by the operator — summarize the confirmed "
                 "root cause with finish(...); the repair will be launched as a separate phase"
             }
+        mismatch = self._repair_target_mismatch(file)
+        if mismatch:
+            return {"error": "repair NOT accepted: " + mismatch}
         patch = repair.propose_patch(file, new_content, reasoning)
         self.state.patch = patch
         self._advance(IncidentStage.REPAIR_GENERATED)

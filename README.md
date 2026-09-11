@@ -208,7 +208,7 @@ Verify without the UI:
 
 ```bash
 make test                        # 32 pipeline invariants (incident mode fails exactly 7 — by design)
-uv run pytest tests/             # 55 unit tests: evidence gates, repair/PR, ACK, tracing
+uv run pytest tests/             # 58 unit tests: evidence gates, repair/PR, ACK, tracing
 uv run python scripts/vertical_slice.py   # full autonomous run in the terminal
 uv run python scripts/demo_drill.py       # Playwright drill of the whole judge flow
 make evals                       # eval battery (see evals/README.md)
@@ -271,7 +271,7 @@ Runs the same deterministic evidence CI runs — backend unit tests, the healthy
 
 ```
 BLACKBOX JUDGE CHECK
-backend:               PASS — 55 tests
+backend:               PASS — 58 tests
 healthy pipeline:      PASS — 32/32
 frontend lint/build:   PASS — clean
 secrets:               PASS — none tracked, .env ignored

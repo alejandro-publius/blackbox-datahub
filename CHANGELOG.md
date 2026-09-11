@@ -34,6 +34,18 @@ All notable changes to this project are documented here. Format follows
   `evals/scenarios.py`.
 - README: the unit-test count (`50` → `55`, both places it's quoted) after the
   additions above.
+- `backend/blackbox/agent/tools.py`: `propose_repair` never checked that the
+  file it patches has anything to do with the confirmed root cause — it
+  validated only that *some* root cause existed and that the repair phase was
+  authorized, so a root cause confirmed on one table did not stop a real file
+  write, warehouse rebuild, git commit and "RESOLVED" DataHub writeback aimed
+  at a completely different, untouched one. The target must now be the root
+  cause asset's own transform, or — only when that asset has no transform of
+  its own — one of its immediate downstream transforms in the traversed
+  lineage. Grounded in `state.edges` and the transforms on disk, never a claim
+  the model made.
+- README: the unit-test count (`55` → `58`, both places it's quoted) after the
+  three new `propose_repair` target tests.
 
 ## [0.1.0] - 2026-09-04
 
