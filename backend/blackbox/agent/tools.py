@@ -337,6 +337,7 @@ class ToolExecutor:
         assert rc is not None
         stem = Path(file).stem.lower()
         rc_stem = self._table_stem(rc.asset_urn)
+        # Owner-confirmed: every transform file is named for the table it produces, dbt adapter included.
         if stem == rc_stem:
             return None
         if f"{rc_stem}.sql" in warehouse.list_transforms():
