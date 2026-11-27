@@ -21,14 +21,17 @@ dependencies = [
     "requests>=2.32",
     "pytest>=8.3",
     "tenacity>=9.0",
-    "mcp>=2.0.0",
+    "mcp>=2.3.0",
     "sqlparse>=0.5.5",
     "datahub-agent-context>=1.6.0.8.post1",
 ]
 
 [project.optional-dependencies]
 tracing = [
-    "arize-phoenix>=14.6.0",
+    # 19.8.0 carries the applyChatTemplate fix (GHSA-gfv3-m769-5xm3) and is the
+    # newest Phoenix that accepts mcp 2.x: 19.9+ caps fastmcp-slim<4, which pins
+    # mcp<2, and 20.2+ also pins a sqlglot that conflicts with acryl-datahub's.
+    "arize-phoenix>=19.8.0",
     "openinference-instrumentation-anthropic>=1.1.2",
     "opentelemetry-exporter-otlp>=1.44.0",
     "opentelemetry-sdk>=1.44.0",

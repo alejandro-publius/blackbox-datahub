@@ -47,6 +47,21 @@ All notable changes to this project are documented here. Format follows
 - README: the unit-test count (`55` → `58`, both places it's quoted) after the
   three new `propose_repair` target tests.
 
+### Security
+- Dependency advisories (Dependabot) patched in both lockfiles. Frontend:
+  `next` 16.3.4 → 16.4.6 (critical RCE advisories) with `eslint-config-next`
+  kept in step, plus transitive bumps; `npm audit` reports 0. Backend:
+  `mcp` ≥ 2.3.0, `arize-phoenix` (tracing extra) ≥ 19.8.0, and transitive
+  bumps to aiohttp, authlib, certifi, dnspython, graphql-core, joserfc,
+  multidict, opentelemetry, pyasn1, pyjwt, strawberry-graphql and urllib3.
+  `arize-phoenix-otel` 0.17.3 is needed for the patched OpenTelemetry exporter.
+  Still open, blocked upstream: `setuptools` (acryl-datahub 1.6 caps it below
+  82) and two `strawberry-graphql` advisories (every Phoenix that pins a fixed
+  strawberry also pins a sqlglot that conflicts with acryl-datahub's).
+- `uv.lock`: PyPI has delisted the `sqlglotc` 30.8.0 wheels (the sdist no
+  longer compiles), so a relock drops them; the lock keeps the original wheel
+  entries, which are still downloadable. Re-check this after any `uv lock`.
+
 ## [0.1.0] - 2026-09-04
 
 ### Added
