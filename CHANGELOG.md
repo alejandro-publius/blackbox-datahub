@@ -46,6 +46,34 @@ All notable changes to this project are documented here. Format follows
   the model made.
 - README: the unit-test count (`55` → `58`, both places it's quoted) after the
   three new `propose_repair` target tests.
+- `backend/blackbox/repair.py`: `verify_repair` counted a repair as verified
+  when no invariant *failed*, so a suite of 32 skipped tests (0 passed) passed
+  verification. It now requires every collected invariant to pass (issue #11,
+  finding 5).
+- `backend/blackbox/datahub/writeback.py`: `resolve_incident` returned
+  `complete` even when the docs note or the `blackbox-remediated` tag failed to
+  write, which advanced the incident to `WRITEBACK_COMPLETE` with part of the
+  record missing. Either failure now returns `partial` (the incident stays
+  `VERIFIED`) and the detail names what failed. The command center's writeback
+  badge is amber for anything other than `complete` (issue #11, finding 6).
+- `tests/`: ten new tests covering both fixes (each mutation-checked against
+  the old code) plus the partial-writeback stage rule through `propose_repair`;
+  README unit-test count `58` → `68`.
+
+### Security
+- Dependency advisories (Dependabot) patched in both lockfiles. Frontend:
+  `next` 16.3.4 → 16.4.6 (critical RCE advisories) with `eslint-config-next`
+  kept in step, plus transitive bumps; `npm audit` reports 0. Backend:
+  `mcp` ≥ 2.3.0, `arize-phoenix` (tracing extra) ≥ 19.8.0, and transitive
+  bumps to aiohttp, authlib, certifi, dnspython, graphql-core, joserfc,
+  multidict, opentelemetry, pyasn1, pyjwt, strawberry-graphql and urllib3.
+  `arize-phoenix-otel` 0.17.3 is needed for the patched OpenTelemetry exporter.
+  Still open, blocked upstream: `setuptools` (acryl-datahub 1.6 caps it below
+  82) and two `strawberry-graphql` advisories (every Phoenix that pins a fixed
+  strawberry also pins a sqlglot that conflicts with acryl-datahub's).
+- `uv.lock`: PyPI has delisted the `sqlglotc` 30.8.0 wheels (the sdist no
+  longer compiles), so a relock drops them; the lock keeps the original wheel
+  entries, which are still downloadable. Re-check this after any `uv lock`.
 
 ## [0.1.0] - 2026-09-04
 

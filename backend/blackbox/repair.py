@@ -81,7 +81,11 @@ def cleanup_backups() -> None:
 
 def verify_repair() -> tuple[TestReport, MetricSnapshot, bool]:
     """Rebuild the warehouse with the patched transform, run the full invariant
-    suite, and recompute the KPI. Success = all tests pass AND KPI back in range."""
+    suite, and recompute the KPI. Success = all tests pass AND KPI back in range.
+
+    "All tests pass" means every collected test passed, not merely that none
+    failed: a skipped invariant checked nothing, so a suite of 32 skips must not
+    count as a verified repair."""
     build = warehouse.rebuild_warehouse()
     if not build["ok"]:
         report = TestReport(total=0, passed=0, failed=1, failures=[])
@@ -90,7 +94,8 @@ def verify_repair() -> tuple[TestReport, MetricSnapshot, bool]:
     report = warehouse.run_invariants()
     snapshot = warehouse.get_metric_snapshot()
     metric_ok = 0.8 <= snapshot.anomaly_ratio <= 1.3
-    return report, snapshot, report.failed == 0 and report.total > 0 and metric_ok
+    all_passed = report.total > 0 and report.failed == 0 and report.passed == report.total
+    return report, snapshot, all_passed and metric_ok
 
 
 def make_git_artifact(patch: ProposedPatch, incident_id: str, summary: str) -> GitArtifact:

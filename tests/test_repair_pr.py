@@ -565,6 +565,30 @@ def test_verified_repair_survives_a_failing_pr_publication(pr_on, monkeypatch, s
     assert pr_evidence and pr_evidence[-1].source == "git"
 
 
+def test_a_partial_writeback_does_not_reach_writeback_complete(pr_off, monkeypatch, store):
+    state = verified_state()
+    state.stage = IncidentStage.ROOT_CAUSE_CONFIRMED
+    state.patch = None
+    state.git_artifact = None
+    _stub_verified_repair(monkeypatch, state)
+    from blackbox.datahub import writeback
+    from blackbox.models import Writeback
+
+    monkeypatch.setattr(
+        writeback, "resolve_incident",
+        lambda st: Writeback(incident_urn="urn:li:incident:x", status="partial",
+                             detail="docs note FAILED (RuntimeError: outage)"),
+    )
+
+    out = _executor(state, store).t_propose_repair(
+        file="pipeline/transforms/stg_orders.sql", new_content="SELECT 1", reasoning="fix it"
+    )
+
+    assert out["verified"] is True
+    assert out["writeback"]["status"] == "partial"
+    assert state.stage == IncidentStage.VERIFIED  # not WRITEBACK_COMPLETE
+
+
 def test_flag_off_leaves_the_repair_flow_byte_for_byte_unchanged(pr_off, monkeypatch, store):
     state = verified_state()
     state.stage = IncidentStage.ROOT_CAUSE_CONFIRMED
