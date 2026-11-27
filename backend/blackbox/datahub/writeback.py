@@ -106,23 +106,27 @@ def resolve_incident(state: IncidentState) -> Writeback:
             detail=f"incident raised but status update failed: {e}",
         )
 
+    # Institutional memory on the root-cause dataset. A failure here must not undo
+    # the status update above, but it does mean the writeback is not complete:
+    # report "partial" so the incident stays VERIFIED instead of advancing to
+    # WRITEBACK_COMPLETE with the docs note or tag missing.
     extras = []
-    # institutional memory on the root-cause dataset (best-effort)
+    failed = []
     try:
         _append_incident_note(state)
         extras.append("remediation note appended to dataset docs")
     except Exception as e:
-        extras.append(f"docs note skipped ({type(e).__name__})")
+        failed.append(f"docs note FAILED ({type(e).__name__}: {e})")
     try:
         _tag_remediated(state)
         extras.append("tagged blackbox-remediated")
     except Exception as e:
-        extras.append(f"tag skipped ({type(e).__name__})")
+        failed.append(f"tag FAILED ({type(e).__name__}: {e})")
 
     return Writeback(
         incident_urn=wb.incident_urn,
-        status="complete",
-        detail=f"Incident RESOLVED (FIXED) in DataHub — {message}. " + "; ".join(extras),
+        status="partial" if failed else "complete",
+        detail=f"Incident RESOLVED (FIXED) in DataHub — {message}. " + "; ".join(extras + failed),
     )
 
 

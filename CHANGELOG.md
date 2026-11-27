@@ -46,6 +46,19 @@ All notable changes to this project are documented here. Format follows
   the model made.
 - README: the unit-test count (`55` → `58`, both places it's quoted) after the
   three new `propose_repair` target tests.
+- `backend/blackbox/repair.py`: `verify_repair` counted a repair as verified
+  when no invariant *failed*, so a suite of 32 skipped tests (0 passed) passed
+  verification. It now requires every collected invariant to pass (issue #11,
+  finding 5).
+- `backend/blackbox/datahub/writeback.py`: `resolve_incident` returned
+  `complete` even when the docs note or the `blackbox-remediated` tag failed to
+  write, which advanced the incident to `WRITEBACK_COMPLETE` with part of the
+  record missing. Either failure now returns `partial` (the incident stays
+  `VERIFIED`) and the detail names what failed. The command center's writeback
+  badge is amber for anything other than `complete` (issue #11, finding 6).
+- `tests/`: ten new tests covering both fixes (each mutation-checked against
+  the old code) plus the partial-writeback stage rule through `propose_repair`;
+  README unit-test count `58` → `68`.
 
 ### Security
 - Dependency advisories (Dependabot) patched in both lockfiles. Frontend:

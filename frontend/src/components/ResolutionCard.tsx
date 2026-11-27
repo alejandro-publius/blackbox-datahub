@@ -199,7 +199,13 @@ export function ResolutionCard({
               </span>
             )}
           </div>
-          <span className="shrink-0 rounded border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-px font-mono text-[10px] font-semibold text-emerald-400">
+          <span
+            className={
+              writeback.status === "complete"
+                ? "shrink-0 rounded border border-emerald-400/40 bg-emerald-400/10 px-1.5 py-px font-mono text-[10px] font-semibold text-emerald-400"
+                : "shrink-0 rounded border border-amber-400/40 bg-amber-400/10 px-1.5 py-px font-mono text-[10px] font-semibold text-amber-400"
+            }
+          >
             {writeback.status}
           </span>
         </div>
